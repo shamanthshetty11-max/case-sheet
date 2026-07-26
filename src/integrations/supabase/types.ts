@@ -14,7 +14,151 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      procedure_attachments: {
+        Row: {
+          created_at: string
+          filename: string
+          id: string
+          mime_type: string | null
+          procedure_id: string
+          size_bytes: number | null
+          storage_path: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          filename: string
+          id?: string
+          mime_type?: string | null
+          procedure_id: string
+          size_bytes?: number | null
+          storage_path: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          filename?: string
+          id?: string
+          mime_type?: string | null
+          procedure_id?: string
+          size_bytes?: number | null
+          storage_path?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procedure_attachments_procedure_id_fkey"
+            columns: ["procedure_id"]
+            isOneToOne: false
+            referencedRelation: "procedures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procedure_steps: {
+        Row: {
+          created_at: string
+          duration_seconds: number
+          id: string
+          label: string
+          notes: string | null
+          order_idx: number
+          procedure_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_seconds?: number
+          id?: string
+          label: string
+          notes?: string | null
+          order_idx?: number
+          procedure_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_seconds?: number
+          id?: string
+          label?: string
+          notes?: string | null
+          order_idx?: number
+          procedure_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procedure_steps_procedure_id_fkey"
+            columns: ["procedure_id"]
+            isOneToOne: false
+            referencedRelation: "procedures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procedures: {
+        Row: {
+          category: string | null
+          complications: string | null
+          created_at: string
+          difficulty: number | null
+          id: string
+          indication: string | null
+          lessons: string | null
+          name: string
+          notes: string | null
+          outcome: string | null
+          patient_ref: string | null
+          performed_at: string
+          role: string | null
+          site: string | null
+          supervisor: string | null
+          total_duration_seconds: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          complications?: string | null
+          created_at?: string
+          difficulty?: number | null
+          id?: string
+          indication?: string | null
+          lessons?: string | null
+          name: string
+          notes?: string | null
+          outcome?: string | null
+          patient_ref?: string | null
+          performed_at?: string
+          role?: string | null
+          site?: string | null
+          supervisor?: string | null
+          total_duration_seconds?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          complications?: string | null
+          created_at?: string
+          difficulty?: number | null
+          id?: string
+          indication?: string | null
+          lessons?: string | null
+          name?: string
+          notes?: string | null
+          outcome?: string | null
+          patient_ref?: string | null
+          performed_at?: string
+          role?: string | null
+          site?: string | null
+          supervisor?: string | null
+          total_duration_seconds?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
