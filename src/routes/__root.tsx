@@ -80,11 +80,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "ProcLog — PA Procedure Logbook" },
-      { name: "description", content: "A private logbook for physician assistants to track procedures, timed steps, and case notes." },
+      { name: "description", content: "Log procedures, time key steps, and keep clinical notes in one private, searchable logbook built for physician assistants." },
       { property: "og:title", content: "ProcLog — PA Procedure Logbook" },
-      { property: "og:description", content: "Track procedures, timed steps, and clinical notes in one private logbook." },
+      { property: "og:description", content: "Log procedures, time key steps, and keep clinical notes in one private, searchable logbook built for physician assistants." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "ProcLog — PA Procedure Logbook" },
+      { name: "twitter:description", content: "Log procedures, time key steps, and keep clinical notes in one private, searchable logbook built for physician assistants." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/81564417-1bd1-4b91-b4e2-cdd14b00f4ae/id-preview-a6929b0f--ab87d512-910f-48b7-8b54-88c15ed219ab.lovable.app-1785055864993.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/81564417-1bd1-4b91-b4e2-cdd14b00f4ae/id-preview-a6929b0f--ab87d512-910f-48b7-8b54-88c15ed219ab.lovable.app-1785055864993.png" },
     ],
     links: [
       {

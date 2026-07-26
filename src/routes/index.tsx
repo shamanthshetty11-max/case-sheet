@@ -10,7 +10,7 @@ export const Route = createFileRoute("/")({
       { title: "ProcLog — PA Procedure Logbook" },
       { name: "description", content: "Log procedures, time key steps, and keep clinical notes in one private, searchable logbook built for physician assistants." },
       { property: "og:title", content: "ProcLog — PA Procedure Logbook" },
-      { property: "og:description", content: "Log procedures, time key steps, and keep clinical notes in one private logbook." },
+      { property: "og:description", content: "Log procedures, time key steps, and keep clinical notes in one private, searchable logbook built for physician assistants." },
     ],
   }),
   component: Landing,
