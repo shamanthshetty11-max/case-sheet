@@ -9,7 +9,8 @@ export type Procedure = {
   patient_ref: string | null;
   indication: string | null;
   site: string | null;
-  supervisor: string | null;
+  surgeon: string | null;
+  assistant_surgeon: string | null;
   role: "observed" | "assisted" | "performed" | "supervised" | null;
   difficulty: number | null;
   outcome: string | null;
