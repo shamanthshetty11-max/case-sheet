@@ -98,6 +98,7 @@ export type Database = {
       }
       procedures: {
         Row: {
+          assistant_surgeon: string | null
           category: string | null
           complications: string | null
           created_at: string
@@ -112,12 +113,13 @@ export type Database = {
           performed_at: string
           role: string | null
           site: string | null
-          supervisor: string | null
+          surgeon: string | null
           total_duration_seconds: number | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          assistant_surgeon?: string | null
           category?: string | null
           complications?: string | null
           created_at?: string
@@ -132,12 +134,13 @@ export type Database = {
           performed_at?: string
           role?: string | null
           site?: string | null
-          supervisor?: string | null
+          surgeon?: string | null
           total_duration_seconds?: number | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          assistant_surgeon?: string | null
           category?: string | null
           complications?: string | null
           created_at?: string
@@ -152,7 +155,7 @@ export type Database = {
           performed_at?: string
           role?: string | null
           site?: string | null
-          supervisor?: string | null
+          surgeon?: string | null
           total_duration_seconds?: number | null
           updated_at?: string
           user_id?: string
