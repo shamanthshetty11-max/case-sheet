@@ -86,7 +86,7 @@ export async function getProcedure(id: string) {
 export function exportCsv(procedures: Procedure[]): void {
   const headers = [
     "performed_at","name","category","role","difficulty","patient_ref","site",
-    "indication","supervisor","outcome","complications","lessons","notes","total_duration_seconds",
+    "indication","surgeon","assistant_surgeon","outcome","complications","lessons","notes","total_duration_seconds",
   ];
   const escape = (v: unknown) => {
     const s = v == null ? "" : String(v);
