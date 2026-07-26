@@ -6,10 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, Plus, Search, Activity } from "lucide-react";
+import { Download, Plus, Search, Activity, CalendarDays, TrendingUp, Clock } from "lucide-react";
 import { useMemo, useState } from "react";
-import { format } from "date-fns";
+import { format, isSameDay, isSameMonth, startOfMonth, startOfWeek, subDays } from "date-fns";
+import { DayPicker, type DayButtonProps } from "react-day-picker";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
+import type { Procedure } from "@/lib/procedures";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — ProcLog" }, { name: "description", content: "Your procedure logbook." }] }),
@@ -27,7 +29,7 @@ function Dashboard() {
       if (cat !== "all" && p.category !== cat) return false;
       if (!q.trim()) return true;
       const s = q.toLowerCase();
-      return [p.name, p.category, p.patient_ref, p.indication, p.site, p.supervisor, p.notes, p.lessons]
+      return [p.name, p.category, p.patient_ref, p.indication, p.site, p.surgeon, p.assistant_surgeon, p.notes, p.lessons]
         .some((v) => v?.toLowerCase().includes(s));
     });
   }, [data, q, cat]);
@@ -66,6 +68,8 @@ function Dashboard() {
         <Card><CardHeader className="pb-2"><CardDescription>Assisted</CardDescription><CardTitle className="text-3xl">{stats.byRole["assisted"] ?? 0}</CardTitle></CardHeader></Card>
         <Card><CardHeader className="pb-2"><CardDescription>Observed</CardDescription><CardTitle className="text-3xl">{stats.byRole["observed"] ?? 0}</CardTitle></CardHeader></Card>
       </div>
+
+      <CasesCalendar items={data ?? []} />
 
       {stats.catData.length > 0 && (
         <Card>
