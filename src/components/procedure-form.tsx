@@ -7,8 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PROCEDURE_CATEGORIES, ROLES, formatDuration, type Procedure, type ProcedureStep, type Attachment } from "@/lib/procedures";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, Play, Pause, RotateCcw, Paperclip, X, Download } from "lucide-react";
+import { Plus, Trash2, Play, Pause, RotateCcw, Paperclip, X, Download, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import { extractProcedureFromImage } from "@/lib/ai.functions";
+import { PROCEDURE_CATEGORIES as CATS, ROLES as ROLE_LIST } from "@/lib/procedures";
 
 type StepDraft = { id?: string; label: string; duration_seconds: number; order_idx: number; running?: boolean; startedAt?: number };
 
@@ -68,6 +71,8 @@ export function ProcedureForm({
   const [newStep, setNewStep] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>(initialAttachments);
   const [saving, setSaving] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const extract = useServerFn(extractProcedureFromImage);
   const [, setTick] = useState(0);
 
   useEffect(() => {
@@ -79,6 +84,54 @@ export function ProcedureForm({
 
   function set<K extends keyof ProcedureFormValues>(k: K, val: ProcedureFormValues[K]) {
     setV((s) => ({ ...s, [k]: val }));
+  }
+
+  async function readAsDataUrl(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result as string);
+      r.onerror = () => reject(r.error);
+      r.readAsDataURL(file);
+    });
+  }
+
+  async function handleScan(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setScanning(true);
+    try {
+      const imageDataUrl = await readAsDataUrl(file);
+      const result = await extract({ data: { imageDataUrl } });
+      const applied: string[] = [];
+      setV((prev) => {
+        const next = { ...prev };
+        const apply = (k: keyof ProcedureFormValues, val: string | null | undefined) => {
+          if (!val) return;
+          if (prev[k] && prev[k].trim()) return;
+          next[k] = val;
+          applied.push(k);
+        };
+        apply("name", result.name);
+        if (result.category && CATS.includes(result.category)) apply("category", result.category);
+        apply("patient_ref", result.patient_ref);
+        apply("indication", result.indication);
+        apply("site", result.site);
+        apply("supervisor", result.supervisor);
+        if (result.role && (ROLE_LIST as string[]).includes(result.role)) apply("role", result.role);
+        if (result.difficulty && ["1","2","3","4","5"].includes(result.difficulty)) apply("difficulty", result.difficulty);
+        apply("outcome", result.outcome);
+        apply("complications", result.complications);
+        apply("lessons", result.lessons);
+        apply("notes", result.notes);
+        return next;
+      });
+      toast.success(applied.length ? `Filled ${applied.length} field${applied.length === 1 ? "" : "s"} from image` : "Nothing recognizable in the image");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Scan failed");
+    } finally {
+      setScanning(false);
+    }
   }
 
   function addStep() {
@@ -213,6 +266,26 @@ export function ProcedureForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <Card className="border-primary/30 bg-primary/5">
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
+              <Sparkles className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="font-medium">Scan case details</div>
+              <p className="text-sm text-muted-foreground">Snap a photo of your notes, a form, or a whiteboard. AI fills in what it can.</p>
+            </div>
+          </div>
+          <div>
+            <input id="scan-input" type="file" accept="image/*" className="hidden" onChange={handleScan} />
+            <Button type="button" variant="secondary" disabled={scanning} onClick={() => document.getElementById("scan-input")?.click()}>
+              <Sparkles className="mr-1.5 h-4 w-4" /> {scanning ? "Reading image…" : "Scan image"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader><CardTitle className="text-base">Core</CardTitle></CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
