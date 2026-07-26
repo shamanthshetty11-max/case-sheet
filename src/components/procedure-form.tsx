@@ -22,7 +22,8 @@ export type ProcedureFormValues = {
   patient_ref: string;
   indication: string;
   site: string;
-  supervisor: string;
+  surgeon: string;
+  assistant_surgeon: string;
   role: string;
   difficulty: string;
   outcome: string;
@@ -57,7 +58,8 @@ export function ProcedureForm({
     patient_ref: initial?.patient_ref ?? "",
     indication: initial?.indication ?? "",
     site: initial?.site ?? "",
-    supervisor: initial?.supervisor ?? "",
+    surgeon: initial?.surgeon ?? "",
+    assistant_surgeon: initial?.assistant_surgeon ?? "",
     role: initial?.role ?? "",
     difficulty: initial?.difficulty ? String(initial.difficulty) : "",
     outcome: initial?.outcome ?? "",
@@ -117,7 +119,8 @@ export function ProcedureForm({
         apply("patient_ref", result.patient_ref);
         apply("indication", result.indication);
         apply("site", result.site);
-        apply("supervisor", result.supervisor);
+        apply("surgeon", result.surgeon);
+        apply("assistant_surgeon", result.assistant_surgeon);
         if (result.role && (ROLE_LIST as string[]).includes(result.role)) apply("role", result.role);
         if (result.difficulty && ["1","2","3","4","5"].includes(result.difficulty)) apply("difficulty", result.difficulty);
         apply("outcome", result.outcome);
@@ -225,7 +228,8 @@ export function ProcedureForm({
         patient_ref: v.patient_ref || null,
         indication: v.indication || null,
         site: v.site || null,
-        supervisor: v.supervisor || null,
+        surgeon: v.surgeon || null,
+        assistant_surgeon: v.assistant_surgeon || null,
         role: v.role || null,
         difficulty: v.difficulty ? Number(v.difficulty) : null,
         outcome: v.outcome || null,
@@ -288,15 +292,17 @@ export function ProcedureForm({
 
       <Card>
         <CardHeader><CardTitle className="text-base">Core</CardTitle></CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
-          <Field label="Date & time"><Input type="datetime-local" required value={v.performed_at} onChange={(e) => set("performed_at", e.target.value)} /></Field>
-          <Field label="Procedure name"><Input required placeholder="e.g. Peripheral IV placement" value={v.name} onChange={(e) => set("name", e.target.value)} /></Field>
-          <Field label="Category">
-            <Select value={v.category} onValueChange={(x) => set("category", x)}>
-              <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-              <SelectContent>{PROCEDURE_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-            </Select>
-          </Field>
+        <CardContent className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Field label="Date & time"><Input type="datetime-local" required value={v.performed_at} onChange={(e) => set("performed_at", e.target.value)} /></Field>
+            <Field label="Procedure name"><Input required placeholder="e.g. Peripheral IV placement" value={v.name} onChange={(e) => set("name", e.target.value)} /></Field>
+            <Field label="Category">
+              <Select value={v.category} onValueChange={(x) => set("category", x)}>
+                <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectContent>{PROCEDURE_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              </Select>
+            </Field>
+          </div>
           <Field label="Patient reference (MRN / initials)"><Input value={v.patient_ref} onChange={(e) => set("patient_ref", e.target.value)} /></Field>
         </CardContent>
       </Card>
@@ -306,7 +312,8 @@ export function ProcedureForm({
         <CardContent className="grid gap-4 md:grid-cols-2">
           <Field label="Indication"><Input value={v.indication} onChange={(e) => set("indication", e.target.value)} /></Field>
           <Field label="Site / location"><Input value={v.site} onChange={(e) => set("site", e.target.value)} /></Field>
-          <Field label="Supervising physician"><Input value={v.supervisor} onChange={(e) => set("supervisor", e.target.value)} /></Field>
+          <Field label="Surgeon"><Input value={v.surgeon} onChange={(e) => set("surgeon", e.target.value)} /></Field>
+          <Field label="Assistant surgeon"><Input value={v.assistant_surgeon} onChange={(e) => set("assistant_surgeon", e.target.value)} /></Field>
           <Field label="Complications" className="md:col-span-2"><Textarea rows={2} value={v.complications} onChange={(e) => set("complications", e.target.value)} /></Field>
         </CardContent>
       </Card>
