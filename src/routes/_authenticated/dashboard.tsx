@@ -145,3 +145,158 @@ function Dashboard() {
     </div>
   );
 }
+
+function CasesCalendar({ items }: { items: Procedure[] }) {
+  const [month, setMonth] = useState<Date>(startOfMonth(new Date()));
+  const [selected, setSelected] = useState<Date | undefined>(new Date());
+
+  const counts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of items) {
+      const key = format(new Date(p.performed_at), "yyyy-MM-dd");
+      m.set(key, (m.get(key) ?? 0) + 1);
+    }
+    return m;
+  }, [items]);
+
+  const monthCount = useMemo(
+    () => items.filter((p) => isSameMonth(new Date(p.performed_at), month)).length,
+    [items, month],
+  );
+  const weekCount = useMemo(() => {
+    const start = startOfWeek(new Date(), { weekStartsOn: 1 });
+    return items.filter((p) => new Date(p.performed_at) >= start).length;
+  }, [items]);
+  const busiest = useMemo(() => {
+    let best: { key: string; n: number } | null = null;
+    for (const [key, n] of counts) {
+      const d = new Date(key);
+      if (!isSameMonth(d, month)) continue;
+      if (!best || n > best.n) best = { key, n };
+    }
+    return best;
+  }, [counts, month]);
+  const last30 = useMemo(() => {
+    const from = subDays(new Date(), 30);
+    return items.filter((p) => new Date(p.performed_at) >= from).length;
+  }, [items]);
+
+  const daysWithCases = useMemo(() => Array.from(counts.keys()).map((k) => new Date(k)), [counts]);
+  const selectedList = useMemo(() => {
+    if (!selected) return [];
+    return items
+      .filter((p) => isSameDay(new Date(p.performed_at), selected))
+      .sort((a, b) => +new Date(b.performed_at) - +new Date(a.performed_at));
+  }, [items, selected]);
+
+  function DayWithCount(props: DayButtonProps) {
+    const { day, modifiers, className, ...rest } = props;
+    const key = format(day.date, "yyyy-MM-dd");
+    const n = counts.get(key) ?? 0;
+    const isSelected = selected && isSameDay(day.date, selected);
+    const isToday = isSameDay(day.date, new Date());
+    return (
+      <button
+        {...rest}
+        className={`relative flex aspect-square h-auto w-full flex-col items-center justify-center gap-0.5 rounded-md text-sm transition-colors hover:bg-accent ${
+          isSelected ? "bg-primary text-primary-foreground hover:bg-primary" : ""
+        } ${!isSelected && isToday ? "ring-1 ring-primary/40" : ""} ${modifiers.outside ? "opacity-40" : ""} ${className ?? ""}`}
+      >
+        <span className="leading-none">{day.date.getDate()}</span>
+        {n > 0 && (
+          <span
+            className={`rounded-full px-1.5 text-[10px] font-medium leading-4 ${
+              isSelected ? "bg-primary-foreground text-primary" : "bg-primary/15 text-primary"
+            }`}
+          >
+            {n}
+          </span>
+        )}
+      </button>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+        <div className="flex items-center gap-2">
+          <CalendarDays className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-base">Case calendar</CardTitle>
+        </div>
+        <div className="text-xs text-muted-foreground">Numbers show cases logged that day</div>
+      </CardHeader>
+      <CardContent className="grid gap-6 md:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="rounded-lg border border-border p-2">
+          <DayPicker
+            mode="single"
+            month={month}
+            onMonthChange={setMonth}
+            selected={selected}
+            onSelect={setSelected}
+            weekStartsOn={1}
+            showOutsideDays
+            modifiers={{ hasCases: daysWithCases }}
+            className="w-full [--cell-size:2.75rem]"
+            classNames={{
+              months: "flex flex-col gap-4",
+              month: "w-full space-y-3",
+              month_caption: "flex items-center justify-center py-1 text-sm font-medium",
+              caption_label: "text-sm font-medium",
+              nav: "flex items-center justify-between px-1",
+              button_previous: "h-7 w-7 rounded-md hover:bg-accent inline-flex items-center justify-center",
+              button_next: "h-7 w-7 rounded-md hover:bg-accent inline-flex items-center justify-center",
+              weekdays: "grid grid-cols-7",
+              weekday: "text-[11px] font-normal text-muted-foreground py-1 text-center",
+              week: "grid grid-cols-7 gap-1 mt-1",
+              day: "p-0",
+            }}
+            components={{ DayButton: DayWithCount }}
+          />
+        </div>
+        <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-2">
+            <MiniStat icon={<CalendarDays className="h-3.5 w-3.5" />} label={format(month, "MMM")} value={monthCount} />
+            <MiniStat icon={<Clock className="h-3.5 w-3.5" />} label="This wk" value={weekCount} />
+            <MiniStat icon={<TrendingUp className="h-3.5 w-3.5" />} label="30d" value={last30} />
+          </div>
+          {busiest && (
+            <div className="rounded-md border border-border bg-secondary/40 p-3 text-xs">
+              <div className="text-muted-foreground">Busiest day this month</div>
+              <div className="mt-0.5 font-medium">
+                {format(new Date(busiest.key), "EEE, MMM d")} — {busiest.n} case{busiest.n === 1 ? "" : "s"}
+              </div>
+            </div>
+          )}
+          <div className="rounded-md border border-border p-3">
+            <div className="mb-2 text-xs font-medium text-muted-foreground">
+              {selected ? format(selected, "EEE, MMM d") : "Pick a day"}
+            </div>
+            {selectedList.length === 0 ? (
+              <div className="text-xs text-muted-foreground">No cases on this day.</div>
+            ) : (
+              <ul className="space-y-1.5">
+                {selectedList.map((p) => (
+                  <li key={p.id}>
+                    <Link to="/procedures/$id" params={{ id: p.id }} className="block truncate rounded px-2 py-1 text-sm hover:bg-accent">
+                      <span className="font-medium">{p.name}</span>
+                      {p.category && <span className="ml-2 text-xs text-muted-foreground">{p.category}</span>}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MiniStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
+  return (
+    <div className="rounded-md border border-border bg-card p-2 text-center">
+      <div className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground">{icon}{label}</div>
+      <div className="text-lg font-semibold leading-tight">{value}</div>
+    </div>
+  );
+}
