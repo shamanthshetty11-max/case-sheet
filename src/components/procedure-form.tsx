@@ -307,7 +307,6 @@ export function ProcedureForm({
           <Field label="Indication"><Input value={v.indication} onChange={(e) => set("indication", e.target.value)} /></Field>
           <Field label="Site / location"><Input value={v.site} onChange={(e) => set("site", e.target.value)} /></Field>
           <Field label="Supervising physician"><Input value={v.supervisor} onChange={(e) => set("supervisor", e.target.value)} /></Field>
-          <Field label="Outcome"><Input value={v.outcome} onChange={(e) => set("outcome", e.target.value)} /></Field>
           <Field label="Complications" className="md:col-span-2"><Textarea rows={2} value={v.complications} onChange={(e) => set("complications", e.target.value)} /></Field>
         </CardContent>
       </Card>
