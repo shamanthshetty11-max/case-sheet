@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/procedures/$id")({
-  head: () => ({ meta: [{ title: "Procedure — ProcLog" }, { name: "description", content: "Procedure detail." }] }),
+  head: () => ({ meta: [{ title: "Procedure — CaseSync" }, { name: "description", content: "Procedure detail." }] }),
   component: ProcedureDetail,
 });
 

@@ -7,15 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Stethoscope } from "lucide-react";
+import { Activity } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in — ProcLog" },
-      { name: "description", content: "Sign in to your ProcLog procedure logbook." },
-      { property: "og:title", content: "Sign in — ProcLog" },
-      { property: "og:description", content: "Sign in to your ProcLog procedure logbook." },
+      { title: "Sign in — CaseSync" },
+      { name: "description", content: "Sign in to your CaseSync procedure logbook." },
+      { property: "og:title", content: "Sign in — CaseSync" },
+      { property: "og:description", content: "Sign in to your CaseSync procedure logbook." },
     ],
   }),
   component: AuthPage,
@@ -72,9 +72,9 @@ function AuthPage() {
       <div className="w-full max-w-md">
         <Link to="/" className="mb-6 flex items-center justify-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Stethoscope className="h-5 w-5" />
+            <Activity className="h-5 w-5" />
           </div>
-          <span className="text-lg font-semibold tracking-tight">ProcLog</span>
+          <span className="text-lg font-semibold tracking-tight">CaseSync</span>
         </Link>
         <Card>
           <CardHeader>

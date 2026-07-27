@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ProcedureForm } from "@/components/procedure-form";
 
 export const Route = createFileRoute("/_authenticated/procedures/new")({
-  head: () => ({ meta: [{ title: "New procedure — ProcLog" }, { name: "description", content: "Log a new procedure." }] }),
+  head: () => ({ meta: [{ title: "New procedure — CaseSync" }, { name: "description", content: "Log a new procedure." }] }),
   component: NewProcedure,
 });
 
