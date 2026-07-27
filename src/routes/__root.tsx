@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { ThemeProvider } from "@/lib/theme";
 
 function NotFoundComponent() {
   return (
@@ -79,14 +80,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "ProcLog — PA Procedure Logbook" },
-      { name: "description", content: "Log procedures, time key steps, and keep clinical notes in one private, searchable logbook built for physician assistants." },
-      { property: "og:title", content: "ProcLog — PA Procedure Logbook" },
-      { property: "og:description", content: "Log procedures, time key steps, and keep clinical notes in one private, searchable logbook built for physician assistants." },
+      { title: "CaseSync — Log. Learn. Grow." },
+      { name: "description", content: "CaseSync is a private procedure logbook built for medical professionals. Log cases, capture clinical detail, and grow your practice." },
+      { property: "og:title", content: "CaseSync — Log. Learn. Grow." },
+      { property: "og:description", content: "A private procedure logbook built for medical professionals. Log. Learn. Grow." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "ProcLog — PA Procedure Logbook" },
-      { name: "twitter:description", content: "Log procedures, time key steps, and keep clinical notes in one private, searchable logbook built for physician assistants." },
+      { name: "twitter:title", content: "CaseSync — Log. Learn. Grow." },
+      { name: "twitter:description", content: "A private procedure logbook built for medical professionals. Log. Learn. Grow." },
       { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/81564417-1bd1-4b91-b4e2-cdd14b00f4ae/id-preview-a6929b0f--ab87d512-910f-48b7-8b54-88c15ed219ab.lovable.app-1785055864993.png" },
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/81564417-1bd1-4b91-b4e2-cdd14b00f4ae/id-preview-a6929b0f--ab87d512-910f-48b7-8b54-88c15ed219ab.lovable.app-1785055864993.png" },
     ],
@@ -132,9 +133,11 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
-      <Toaster richColors position="top-right" />
+      <ThemeProvider>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <Outlet />
+        <Toaster richColors position="top-right" />
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

@@ -18,6 +18,7 @@ export type Procedure = {
   lessons: string | null;
   notes: string | null;
   total_duration_seconds: number | null;
+  pa_names: string[] | null;
   created_at: string;
   updated_at: string;
 };
@@ -44,12 +45,56 @@ export type Attachment = {
 };
 
 export const PROCEDURE_CATEGORIES = [
-  "Airway", "Vascular access", "Suturing", "Incision & drainage",
+  "Cardiac surgery", "Airway", "Vascular access", "Suturing", "Incision & drainage",
   "Lumbar puncture", "Splinting/Casting", "Joint injection",
-  "Skin biopsy", "Cardiac", "Ultrasound", "Endoscopy", "Other",
+  "Skin biopsy", "Ultrasound", "Endoscopy", "Other",
 ];
 
 export const ROLES: Procedure["role"][] = ["observed", "assisted", "performed", "supervised"];
+
+export type TeamMember = { id: string; name: string; created_at: string };
+
+export async function listTeamSurgeons(): Promise<TeamMember[]> {
+  const { data, error } = await supabase.from("team_surgeons").select("id,name,created_at").order("name");
+  if (error) throw error;
+  return (data ?? []) as TeamMember[];
+}
+export async function listTeamPAs(): Promise<TeamMember[]> {
+  const { data, error } = await supabase.from("team_pas").select("id,name,created_at").order("name");
+  if (error) throw error;
+  return (data ?? []) as TeamMember[];
+}
+export async function addTeamSurgeon(name: string) {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) throw new Error("Not signed in");
+  const { data, error } = await supabase.from("team_surgeons").insert({ user_id: u.user.id, name }).select().single();
+  if (error) throw error;
+  return data as TeamMember;
+}
+export async function addTeamPA(name: string) {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) throw new Error("Not signed in");
+  const { data, error } = await supabase.from("team_pas").insert({ user_id: u.user.id, name }).select().single();
+  if (error) throw error;
+  return data as TeamMember;
+}
+export async function deleteTeamSurgeon(id: string) {
+  const { error } = await supabase.from("team_surgeons").delete().eq("id", id);
+  if (error) throw error;
+}
+export async function deleteTeamPA(id: string) {
+  const { error } = await supabase.from("team_pas").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/** Ensure a person's name is prefixed with "Dr." */
+export function withDr(name: string | null | undefined): string {
+  if (!name) return "";
+  const n = name.trim();
+  if (!n) return "";
+  if (/^dr\.?\s+/i.test(n)) return n.replace(/^dr\.?\s+/i, "Dr. ");
+  return `Dr. ${n}`;
+}
 
 export function formatDuration(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));

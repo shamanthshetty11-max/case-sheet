@@ -2,15 +2,16 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Stethoscope, ClipboardList, Timer, BarChart3 } from "lucide-react";
+import { Activity, ClipboardList, Timer, BarChart3 } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "ProcLog — PA Procedure Logbook" },
-      { name: "description", content: "Log procedures, time key steps, and keep clinical notes in one private, searchable logbook built for physician assistants." },
-      { property: "og:title", content: "ProcLog — PA Procedure Logbook" },
-      { property: "og:description", content: "Log procedures, time key steps, and keep clinical notes in one private, searchable logbook built for physician assistants." },
+      { title: "CaseSync — Log. Learn. Grow." },
+      { name: "description", content: "CaseSync — a private procedure logbook built for medical professionals. Log every case, time each step, keep clinical notes." },
+      { property: "og:title", content: "CaseSync — Log. Learn. Grow." },
+      { property: "og:description", content: "A private procedure logbook built for medical professionals. Log. Learn. Grow." },
     ],
   }),
   component: Landing,
@@ -34,26 +35,29 @@ function Landing() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <Stethoscope className="h-5 w-5" />
+              <Activity className="h-5 w-5" />
             </div>
-            <span className="text-lg font-semibold tracking-tight">ProcLog</span>
+            <span className="text-lg font-semibold tracking-tight">CaseSync</span>
           </div>
-          <Link to="/auth">
-            <Button variant="ghost">Sign in</Button>
-          </Link>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <Link to="/auth">
+              <Button variant="ghost">Sign in</Button>
+            </Link>
+          </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-20">
         <div className="max-w-2xl">
           <p className="mb-4 inline-block rounded-full bg-accent px-3 py-1 text-xs font-medium text-accent-foreground">
-            Built for physician assistants
+            Built for medical professionals
           </p>
           <h1 className="text-5xl font-semibold tracking-tight text-foreground sm:text-6xl">
-            Every procedure. Every step. Kept clean.
+            Log. Learn. Grow.
           </h1>
           <p className="mt-6 text-lg text-muted-foreground">
-            A private logbook to track the procedures you observe, assist, and perform — with timed steps, clinical detail, and case notes ready for credentialing.
+            CaseSync is a private procedure logbook for medical professionals — capture every case, time each step, and keep clinical notes ready for credentialing.
           </p>
           <div className="mt-8 flex gap-3">
             <Link to="/auth">
@@ -63,8 +67,8 @@ function Landing() {
         </div>
 
         <div className="mt-20 grid gap-6 sm:grid-cols-3">
-          <Feature icon={<ClipboardList className="h-5 w-5" />} title="Structured cases" desc="Role, indication, site, supervisor, difficulty, outcome, complications, lessons." />
-          <Feature icon={<Timer className="h-5 w-5" />} title="Timed steps" desc="Add per-case steps and time them live — different every procedure." />
+          <Feature icon={<ClipboardList className="h-5 w-5" />} title="Structured cases" desc="Diagnosis, surgical approach, surgeon, assistants, complications, and notes." />
+          <Feature icon={<Timer className="h-5 w-5" />} title="Timed steps" desc="Add the steps that matter for each case and record how long each took." />
           <Feature icon={<BarChart3 className="h-5 w-5" />} title="Stats & export" desc="See counts by procedure and month. Export a CSV for your logbook." />
         </div>
       </main>

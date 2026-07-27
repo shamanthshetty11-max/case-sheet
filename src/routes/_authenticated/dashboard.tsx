@@ -14,7 +14,7 @@ import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGri
 import type { Procedure } from "@/lib/procedures";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard — ProcLog" }, { name: "description", content: "Your procedure logbook." }] }),
+  head: () => ({ meta: [{ title: "Dashboard — CaseSync" }, { name: "description", content: "Your CaseSync procedure logbook." }] }),
   component: Dashboard,
 });
 
@@ -29,7 +29,7 @@ function Dashboard() {
       if (cat !== "all" && p.category !== cat) return false;
       if (!q.trim()) return true;
       const s = q.toLowerCase();
-      return [p.name, p.category, p.patient_ref, p.indication, p.site, p.surgeon, p.assistant_surgeon, p.notes, p.lessons]
+      return [p.name, p.category, p.patient_ref, p.indication, p.site, p.surgeon, p.assistant_surgeon, p.notes]
         .some((v) => v?.toLowerCase().includes(s));
     });
   }, [data, q, cat]);
@@ -37,14 +37,17 @@ function Dashboard() {
   const stats = useMemo(() => {
     const items = data ?? [];
     const byCat: Record<string, number> = {};
-    const byRole: Record<string, number> = {};
     items.forEach((p) => {
       const c = p.category || "Uncategorized";
       byCat[c] = (byCat[c] ?? 0) + 1;
-      if (p.role) byRole[p.role] = (byRole[p.role] ?? 0) + 1;
     });
     const catData = Object.entries(byCat).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
-    return { total: items.length, byRole, catData };
+    const now = new Date();
+    const monthCount = items.filter((p) => isSameMonth(new Date(p.performed_at), now)).length;
+    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+    const weekCount = items.filter((p) => new Date(p.performed_at) >= weekStart).length;
+    const last30 = items.filter((p) => new Date(p.performed_at) >= subDays(now, 30)).length;
+    return { total: items.length, catData, monthCount, weekCount, last30 };
   }, [data]);
 
   return (
@@ -64,9 +67,9 @@ function Dashboard() {
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card><CardHeader className="pb-2"><CardDescription>Total</CardDescription><CardTitle className="text-3xl">{stats.total}</CardTitle></CardHeader></Card>
-        <Card><CardHeader className="pb-2"><CardDescription>Performed</CardDescription><CardTitle className="text-3xl">{stats.byRole["performed"] ?? 0}</CardTitle></CardHeader></Card>
-        <Card><CardHeader className="pb-2"><CardDescription>Assisted</CardDescription><CardTitle className="text-3xl">{stats.byRole["assisted"] ?? 0}</CardTitle></CardHeader></Card>
-        <Card><CardHeader className="pb-2"><CardDescription>Observed</CardDescription><CardTitle className="text-3xl">{stats.byRole["observed"] ?? 0}</CardTitle></CardHeader></Card>
+        <Card><CardHeader className="pb-2"><CardDescription>This month</CardDescription><CardTitle className="text-3xl">{stats.monthCount}</CardTitle></CardHeader></Card>
+        <Card><CardHeader className="pb-2"><CardDescription>This week</CardDescription><CardTitle className="text-3xl">{stats.weekCount}</CardTitle></CardHeader></Card>
+        <Card><CardHeader className="pb-2"><CardDescription>Last 30 days</CardDescription><CardTitle className="text-3xl">{stats.last30}</CardTitle></CardHeader></Card>
       </div>
 
       <CasesCalendar items={data ?? []} />
@@ -126,12 +129,12 @@ function Dashboard() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <h3 className="truncate font-medium">{p.name}</h3>
-                      {p.role && <Badge variant="secondary" className="capitalize">{p.role}</Badge>}
+                      {p.category && <Badge variant="secondary">{p.category}</Badge>}
                     </div>
                     <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                       <span>{format(new Date(p.performed_at), "MMM d, yyyy")}</span>
-                      {p.category && <span>{p.category}</span>}
                       {p.site && <span>{p.site}</span>}
+                      {p.surgeon && <span>Dr. {p.surgeon.replace(/^dr\.?\s+/i, "")}</span>}
                       {p.patient_ref && <span>Pt: {p.patient_ref}</span>}
                       {p.total_duration_seconds != null && p.total_duration_seconds > 0 && <span>{formatDuration(p.total_duration_seconds)}</span>}
                     </div>
@@ -225,7 +228,13 @@ function CasesCalendar({ items }: { items: Procedure[] }) {
         </div>
         <div className="text-xs text-muted-foreground">Numbers show cases logged that day</div>
       </CardHeader>
-      <CardContent className="grid gap-6 md:grid-cols-[minmax(0,1fr)_260px]">
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <MiniStat icon={<CalendarDays className="h-3.5 w-3.5" />} label={format(month, "MMM")} value={monthCount} />
+          <MiniStat icon={<Clock className="h-3.5 w-3.5" />} label="This wk" value={weekCount} />
+          <MiniStat icon={<TrendingUp className="h-3.5 w-3.5" />} label="30d" value={last30} />
+          <MiniStat icon={<Activity className="h-3.5 w-3.5" />} label="Total" value={items.length} />
+        </div>
         <div className="rounded-lg border border-border p-2">
           <DayPicker
             mode="single"
@@ -236,7 +245,7 @@ function CasesCalendar({ items }: { items: Procedure[] }) {
             weekStartsOn={1}
             showOutsideDays
             modifiers={{ hasCases: daysWithCases }}
-            className="w-full [--cell-size:2.75rem]"
+            className="w-full"
             classNames={{
               months: "flex flex-col gap-4",
               month: "w-full space-y-3",
@@ -253,12 +262,7 @@ function CasesCalendar({ items }: { items: Procedure[] }) {
             components={{ DayButton: DayWithCount }}
           />
         </div>
-        <div className="space-y-3">
-          <div className="grid grid-cols-3 gap-2">
-            <MiniStat icon={<CalendarDays className="h-3.5 w-3.5" />} label={format(month, "MMM")} value={monthCount} />
-            <MiniStat icon={<Clock className="h-3.5 w-3.5" />} label="This wk" value={weekCount} />
-            <MiniStat icon={<TrendingUp className="h-3.5 w-3.5" />} label="30d" value={last30} />
-          </div>
+        <div className="grid gap-3 md:grid-cols-2">
           {busiest && (
             <div className="rounded-md border border-border bg-secondary/40 p-3 text-xs">
               <div className="text-muted-foreground">Busiest day this month</div>

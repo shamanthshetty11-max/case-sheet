@@ -1,8 +1,9 @@
 import { createFileRoute, Outlet, redirect, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Stethoscope, Plus, LayoutDashboard, LogOut } from "lucide-react";
+import { Activity, Plus, LayoutDashboard, LogOut, Users } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -32,9 +33,12 @@ function AuthedLayout() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
           <Link to="/dashboard" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <Stethoscope className="h-4 w-4" />
+              <Activity className="h-4 w-4" />
             </div>
-            <span className="font-semibold tracking-tight">ProcLog</span>
+            <div className="leading-tight">
+              <div className="font-semibold tracking-tight">CaseSync</div>
+              <div className="hidden text-[10px] uppercase tracking-widest text-muted-foreground sm:block">Log · Learn · Grow</div>
+            </div>
           </Link>
           <nav className="flex items-center gap-1">
             <Link to="/dashboard">
@@ -42,11 +46,17 @@ function AuthedLayout() {
                 <LayoutDashboard className="mr-1.5 h-4 w-4" /> Dashboard
               </Button>
             </Link>
+            <Link to="/team">
+              <Button variant={pathname === "/team" ? "secondary" : "ghost"} size="sm">
+                <Users className="mr-1.5 h-4 w-4" /> Team
+              </Button>
+            </Link>
             <Link to="/procedures/new">
               <Button size="sm">
                 <Plus className="mr-1.5 h-4 w-4" /> New procedure
               </Button>
             </Link>
+            <ThemeToggle />
             <Button variant="ghost" size="sm" onClick={signOut} aria-label="Sign out">
               <LogOut className="h-4 w-4" />
             </Button>
