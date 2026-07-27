@@ -1,34 +1,42 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PROCEDURE_CATEGORIES, ROLES, formatDuration, type Procedure, type ProcedureStep, type Attachment } from "@/lib/procedures";
+import {
+  PROCEDURE_CATEGORIES,
+  formatDuration,
+  listTeamPAs,
+  listTeamSurgeons,
+  addTeamPA,
+  addTeamSurgeon,
+  withDr,
+  type Procedure,
+  type ProcedureStep,
+  type Attachment,
+} from "@/lib/procedures";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, Play, Pause, RotateCcw, Paperclip, X, Download, Sparkles } from "lucide-react";
+import { Plus, Trash2, Paperclip, X, Download, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { extractProcedureFromImage } from "@/lib/ai.functions";
-import { PROCEDURE_CATEGORIES as CATS, ROLES as ROLE_LIST } from "@/lib/procedures";
+import { PROCEDURE_CATEGORIES as CATS } from "@/lib/procedures";
 
-type StepDraft = { id?: string; label: string; duration_seconds: number; order_idx: number; running?: boolean; startedAt?: number };
+type StepDraft = { id?: string; label: string; duration_seconds: number; order_idx: number };
 
 export type ProcedureFormValues = {
   performed_at: string;
   name: string;
   category: string;
   patient_ref: string;
-  indication: string;
-  site: string;
+  diagnosis: string;
+  surgical_approach: string;
   surgeon: string;
   assistant_surgeon: string;
-  role: string;
-  difficulty: string;
-  outcome: string;
   complications: string;
-  lessons: string;
   notes: string;
 };
 
@@ -37,6 +45,8 @@ function toLocalInput(iso: string): string {
   const off = d.getTimezoneOffset();
   return new Date(d.getTime() - off * 60000).toISOString().slice(0, 16);
 }
+
+const NEW_VALUE = "__new__";
 
 export function ProcedureForm({
   initial,
@@ -56,33 +66,28 @@ export function ProcedureForm({
     name: initial?.name ?? "",
     category: initial?.category ?? "",
     patient_ref: initial?.patient_ref ?? "",
-    indication: initial?.indication ?? "",
-    site: initial?.site ?? "",
+    diagnosis: initial?.indication ?? "",
+    surgical_approach: initial?.site ?? "",
     surgeon: initial?.surgeon ?? "",
     assistant_surgeon: initial?.assistant_surgeon ?? "",
-    role: initial?.role ?? "",
-    difficulty: initial?.difficulty ? String(initial.difficulty) : "",
-    outcome: initial?.outcome ?? "",
     complications: initial?.complications ?? "",
-    lessons: initial?.lessons ?? "",
     notes: initial?.notes ?? "",
   });
+  const [paNames, setPaNames] = useState<string[]>(initial?.pa_names ?? []);
   const [steps, setSteps] = useState<StepDraft[]>(
     initialSteps.map((s) => ({ id: s.id, label: s.label, duration_seconds: s.duration_seconds, order_idx: s.order_idx })),
   );
   const [newStep, setNewStep] = useState("");
+  const [newStepMin, setNewStepMin] = useState<string>("");
+  const [newStepSec, setNewStepSec] = useState<string>("");
   const [attachments, setAttachments] = useState<Attachment[]>(initialAttachments);
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
   const extract = useServerFn(extractProcedureFromImage);
-  const [, setTick] = useState(0);
 
-  useEffect(() => {
-    const anyRunning = steps.some((s) => s.running);
-    if (!anyRunning) return;
-    const t = setInterval(() => setTick((n) => n + 1), 500);
-    return () => clearInterval(t);
-  }, [steps]);
+  const qc = useQueryClient();
+  const surgeonsQ = useQuery({ queryKey: ["team_surgeons"], queryFn: listTeamSurgeons });
+  const pasQ = useQuery({ queryKey: ["team_pas"], queryFn: listTeamPAs });
 
   function set<K extends keyof ProcedureFormValues>(k: K, val: ProcedureFormValues[K]) {
     setV((s) => ({ ...s, [k]: val }));
@@ -117,18 +122,22 @@ export function ProcedureForm({
         apply("name", result.name);
         if (result.category && CATS.includes(result.category)) apply("category", result.category);
         apply("patient_ref", result.patient_ref);
-        apply("indication", result.indication);
-        apply("site", result.site);
+        apply("diagnosis", result.diagnosis);
+        apply("surgical_approach", result.surgical_approach);
         apply("surgeon", result.surgeon);
         apply("assistant_surgeon", result.assistant_surgeon);
-        if (result.role && (ROLE_LIST as string[]).includes(result.role)) apply("role", result.role);
-        if (result.difficulty && ["1","2","3","4","5"].includes(result.difficulty)) apply("difficulty", result.difficulty);
-        apply("outcome", result.outcome);
         apply("complications", result.complications);
-        apply("lessons", result.lessons);
         apply("notes", result.notes);
         return next;
       });
+      if (result.pa_names?.length) {
+        setPaNames((prev) => {
+          const set = new Set(prev);
+          for (const n of result.pa_names!) if (n?.trim()) set.add(n.trim());
+          if (set.size > prev.length) applied.push("pa_names");
+          return Array.from(set);
+        });
+      }
       toast.success(applied.length ? `Filled ${applied.length} field${applied.length === 1 ? "" : "s"} from image` : "Nothing recognizable in the image");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Scan failed");
@@ -139,27 +148,49 @@ export function ProcedureForm({
 
   function addStep() {
     if (!newStep.trim()) return;
-    setSteps((s) => [...s, { label: newStep.trim(), duration_seconds: 0, order_idx: s.length }]);
+    const mins = Math.max(0, parseInt(newStepMin || "0", 10) || 0);
+    const secs = Math.max(0, Math.min(59, parseInt(newStepSec || "0", 10) || 0));
+    setSteps((s) => [...s, { label: newStep.trim(), duration_seconds: mins * 60 + secs, order_idx: s.length }]);
     setNewStep("");
+    setNewStepMin("");
+    setNewStepSec("");
   }
   function removeStep(i: number) {
     setSteps((s) => s.filter((_, idx) => idx !== i).map((x, idx) => ({ ...x, order_idx: idx })));
   }
-  function toggleStep(i: number) {
-    setSteps((s) => s.map((x, idx) => {
-      if (idx !== i) return x;
-      if (x.running) {
-        const elapsed = Math.floor((Date.now() - (x.startedAt ?? Date.now())) / 1000);
-        return { ...x, running: false, startedAt: undefined, duration_seconds: x.duration_seconds + elapsed };
-      }
-      return { ...x, running: true, startedAt: Date.now() };
-    }));
+  function updateStep(i: number, patch: Partial<StepDraft>) {
+    setSteps((s) => s.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
   }
-  function resetStep(i: number) {
-    setSteps((s) => s.map((x, idx) => idx === i ? { ...x, duration_seconds: 0, running: false, startedAt: undefined } : x));
+  function stepMinSec(sec: number): { m: number; s: number } {
+    const total = Math.max(0, Math.floor(sec));
+    return { m: Math.floor(total / 60), s: total % 60 };
   }
-  function stepDisplay(s: StepDraft): number {
-    return s.running ? s.duration_seconds + Math.floor((Date.now() - (s.startedAt ?? Date.now())) / 1000) : s.duration_seconds;
+
+  async function addNewSurgeon(): Promise<string | null> {
+    const name = window.prompt("Add surgeon (name only, 'Dr.' is added automatically):");
+    if (!name?.trim()) return null;
+    try {
+      const clean = name.trim().replace(/^dr\.?\s+/i, "");
+      await addTeamSurgeon(clean);
+      qc.invalidateQueries({ queryKey: ["team_surgeons"] });
+      return clean;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save surgeon");
+      return null;
+    }
+  }
+  async function addNewPA(): Promise<string | null> {
+    const name = window.prompt("Add physician assistant name:");
+    if (!name?.trim()) return null;
+    try {
+      const clean = name.trim();
+      await addTeamPA(clean);
+      qc.invalidateQueries({ queryKey: ["team_pas"] });
+      return clean;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save PA");
+      return null;
+    }
   }
 
   async function uploadFiles(files: FileList | null, pid: string) {
@@ -214,10 +245,7 @@ export function ProcedureForm({
       const uid = userData.user?.id;
       if (!uid) throw new Error("Not signed in");
 
-      const finalizedSteps = steps.map((s) => {
-        const dur = s.running ? s.duration_seconds + Math.floor((Date.now() - (s.startedAt ?? Date.now())) / 1000) : s.duration_seconds;
-        return { ...s, duration_seconds: dur, running: false, startedAt: undefined };
-      });
+      const finalizedSteps = steps.map((s) => ({ ...s, duration_seconds: Math.max(0, s.duration_seconds | 0) }));
       const total = finalizedSteps.reduce((n, s) => n + s.duration_seconds, 0);
 
       const payload = {
@@ -226,15 +254,12 @@ export function ProcedureForm({
         name: v.name.trim(),
         category: v.category || null,
         patient_ref: v.patient_ref || null,
-        indication: v.indication || null,
-        site: v.site || null,
+        indication: v.diagnosis || null,
+        site: v.surgical_approach || null,
         surgeon: v.surgeon || null,
         assistant_surgeon: v.assistant_surgeon || null,
-        role: v.role || null,
-        difficulty: v.difficulty ? Number(v.difficulty) : null,
-        outcome: v.outcome || null,
+        pa_names: paNames.length ? paNames : null,
         complications: v.complications || null,
-        lessons: v.lessons || null,
         notes: v.notes || null,
         total_duration_seconds: total || null,
       };
@@ -295,7 +320,7 @@ export function ProcedureForm({
         <CardContent className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-3">
             <Field label="Date & time"><Input type="datetime-local" required value={v.performed_at} onChange={(e) => set("performed_at", e.target.value)} /></Field>
-            <Field label="Procedure name"><Input required placeholder="e.g. Peripheral IV placement" value={v.name} onChange={(e) => set("name", e.target.value)} /></Field>
+            <Field label="Procedure name"><Input required placeholder="e.g. CABG x3" value={v.name} onChange={(e) => set("name", e.target.value)} /></Field>
             <Field label="Category">
               <Select value={v.category} onValueChange={(x) => set("category", x)}>
                 <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
@@ -310,57 +335,72 @@ export function ProcedureForm({
       <Card>
         <CardHeader><CardTitle className="text-base">Clinical detail</CardTitle></CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
-          <Field label="Indication"><Input value={v.indication} onChange={(e) => set("indication", e.target.value)} /></Field>
-          <Field label="Site / location"><Input value={v.site} onChange={(e) => set("site", e.target.value)} /></Field>
-          <Field label="Surgeon"><Input value={v.surgeon} onChange={(e) => set("surgeon", e.target.value)} /></Field>
-          <Field label="Assistant surgeon"><Input value={v.assistant_surgeon} onChange={(e) => set("assistant_surgeon", e.target.value)} /></Field>
+          <Field label="Diagnosis"><Input value={v.diagnosis} onChange={(e) => set("diagnosis", e.target.value)} /></Field>
+          <Field label="Surgical approach"><Input value={v.surgical_approach} onChange={(e) => set("surgical_approach", e.target.value)} /></Field>
+          <Field label="Surgeon">
+            <SurgeonSelect
+              value={v.surgeon}
+              options={(surgeonsQ.data ?? []).map((s) => s.name)}
+              onChange={(name) => set("surgeon", name)}
+              onAddNew={addNewSurgeon}
+            />
+          </Field>
+          <Field label="Assistant surgeon">
+            <SurgeonSelect
+              value={v.assistant_surgeon}
+              options={(surgeonsQ.data ?? []).map((s) => s.name)}
+              onChange={(name) => set("assistant_surgeon", name)}
+              onAddNew={addNewSurgeon}
+            />
+          </Field>
+          <Field label="Physician assistants" className="md:col-span-2">
+            <PaMultiSelect
+              selected={paNames}
+              options={(pasQ.data ?? []).map((p) => p.name)}
+              onChange={setPaNames}
+              onAddNew={addNewPA}
+            />
+          </Field>
           <Field label="Complications" className="md:col-span-2"><Textarea rows={2} value={v.complications} onChange={(e) => set("complications", e.target.value)} /></Field>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Learning</CardTitle></CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
-          <Field label="Role">
-            <Select value={v.role} onValueChange={(x) => set("role", x)}>
-              <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
-              <SelectContent>{ROLES.map((r) => <SelectItem key={r!} value={r!} className="capitalize">{r}</SelectItem>)}</SelectContent>
-            </Select>
-          </Field>
-          <Field label="Difficulty (1–5)">
-            <Select value={v.difficulty} onValueChange={(x) => set("difficulty", x)}>
-              <SelectTrigger><SelectValue placeholder="Rate difficulty" /></SelectTrigger>
-              <SelectContent>{[1,2,3,4,5].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}</SelectContent>
-            </Select>
-          </Field>
-          <Field label="Lessons learned" className="md:col-span-2"><Textarea rows={3} value={v.lessons} onChange={(e) => set("lessons", e.target.value)} /></Field>
-          <Field label="Notes" className="md:col-span-2"><Textarea rows={4} value={v.notes} onChange={(e) => set("notes", e.target.value)} /></Field>
+        <CardHeader><CardTitle className="text-base">Notes</CardTitle></CardHeader>
+        <CardContent>
+          <Field label="Notes"><Textarea rows={5} value={v.notes} onChange={(e) => set("notes", e.target.value)} /></Field>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Timed steps</CardTitle>
-          <p className="text-sm text-muted-foreground">Add whatever steps this case calls for. Time them live or enter durations after.</p>
+          <p className="text-sm text-muted-foreground">Name the step and enter how long it took. Total time is summed automatically.</p>
         </CardHeader>
         <CardContent className="space-y-3">
           {steps.length > 0 && (
             <div className="space-y-2">
               {steps.map((s, i) => (
-                <div key={i} className="flex items-center gap-2 rounded-md border border-border bg-secondary/40 p-2">
-                  <Input value={s.label} onChange={(e) => setSteps((prev) => prev.map((x, idx) => idx === i ? { ...x, label: e.target.value } : x))} className="flex-1" />
-                  <div className="w-16 text-right font-mono text-sm tabular-nums">{formatDuration(stepDisplay(s))}</div>
-                  <Button type="button" size="icon" variant="ghost" onClick={() => toggleStep(i)}>
-                    {s.running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                  </Button>
-                  <Button type="button" size="icon" variant="ghost" onClick={() => resetStep(i)}><RotateCcw className="h-4 w-4" /></Button>
-                  <Button type="button" size="icon" variant="ghost" onClick={() => removeStep(i)}><Trash2 className="h-4 w-4" /></Button>
-                </div>
+                <StepRow key={i} step={s} onChange={(patch) => updateStep(i, patch)} onRemove={() => removeStep(i)} />
               ))}
+              <div className="pt-1 text-right text-xs text-muted-foreground">
+                Total: <span className="font-mono">{formatDuration(steps.reduce((n, s) => n + s.duration_seconds, 0))}</span>
+              </div>
             </div>
           )}
-          <div className="flex gap-2">
-            <Input placeholder="Add a step (e.g. Prep, Access, Suture)" value={newStep} onChange={(e) => setNewStep(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addStep(); } }} />
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Step name</Label>
+              <Input placeholder="e.g. Sternotomy, Bypass, Closure" value={newStep} onChange={(e) => setNewStep(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addStep(); } }} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Min</Label>
+              <Input type="number" min={0} className="w-20" placeholder="0" value={newStepMin} onChange={(e) => setNewStepMin(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Sec</Label>
+              <Input type="number" min={0} max={59} className="w-20" placeholder="0" value={newStepSec} onChange={(e) => setNewStepSec(e.target.value)} />
+            </div>
             <Button type="button" variant="outline" onClick={addStep}><Plus className="mr-1.5 h-4 w-4" /> Add step</Button>
           </div>
         </CardContent>
@@ -403,6 +443,133 @@ function Field({ label, children, className }: { label: string; children: React.
     <div className={`space-y-1.5 ${className ?? ""}`}>
       <Label>{label}</Label>
       {children}
+    </div>
+  );
+}
+
+function SurgeonSelect({
+  value,
+  options,
+  onChange,
+  onAddNew,
+}: {
+  value: string;
+  options: string[];
+  onChange: (v: string) => void;
+  onAddNew: () => Promise<string | null>;
+}) {
+  const clean = value.replace(/^dr\.?\s+/i, "");
+  return (
+    <Select
+      value={clean || ""}
+      onValueChange={async (val) => {
+        if (val === NEW_VALUE) {
+          const added = await onAddNew();
+          if (added) onChange(added);
+          return;
+        }
+        onChange(val);
+      }}
+    >
+      <SelectTrigger>
+        <SelectValue placeholder="Select surgeon">{clean ? withDr(clean) : undefined}</SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {clean && !options.includes(clean) && (
+          <SelectItem value={clean}>{withDr(clean)}</SelectItem>
+        )}
+        {options.map((o) => (
+          <SelectItem key={o} value={o}>{withDr(o)}</SelectItem>
+        ))}
+        <SelectItem value={NEW_VALUE}>+ Add new surgeon…</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
+function PaMultiSelect({
+  selected,
+  options,
+  onChange,
+  onAddNew,
+}: {
+  selected: string[];
+  options: string[];
+  onChange: (next: string[]) => void;
+  onAddNew: () => Promise<string | null>;
+}) {
+  const available = options.filter((o) => !selected.includes(o));
+  return (
+    <div className="space-y-2">
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {selected.map((n) => (
+            <span key={n} className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary px-2 py-0.5 text-xs">
+              {n}
+              <button type="button" onClick={() => onChange(selected.filter((x) => x !== n))} aria-label={`Remove ${n}`}>
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <Select
+        value=""
+        onValueChange={async (val) => {
+          if (val === NEW_VALUE) {
+            const added = await onAddNew();
+            if (added && !selected.includes(added)) onChange([...selected, added]);
+            return;
+          }
+          if (!selected.includes(val)) onChange([...selected, val]);
+        }}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder={selected.length ? "Add another PA" : "Select PA(s)"} />
+        </SelectTrigger>
+        <SelectContent>
+          {available.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+          <SelectItem value={NEW_VALUE}>+ Add new PA…</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+function StepRow({ step, onChange, onRemove }: { step: StepDraft; onChange: (p: Partial<StepDraft>) => void; onRemove: () => void }) {
+  const m = Math.floor(step.duration_seconds / 60);
+  const s = step.duration_seconds % 60;
+  return (
+    <div className="grid gap-2 rounded-md border border-border bg-secondary/40 p-2 sm:grid-cols-[1fr_auto_auto_auto] sm:items-center">
+      <Input value={step.label} onChange={(e) => onChange({ label: e.target.value })} />
+      <div className="flex items-center gap-1">
+        <Input
+          type="number"
+          min={0}
+          className="w-16"
+          value={m}
+          onChange={(e) => {
+            const mm = Math.max(0, parseInt(e.target.value || "0", 10) || 0);
+            onChange({ duration_seconds: mm * 60 + s });
+          }}
+        />
+        <span className="text-xs text-muted-foreground">m</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <Input
+          type="number"
+          min={0}
+          max={59}
+          className="w-16"
+          value={s}
+          onChange={(e) => {
+            const ss = Math.max(0, Math.min(59, parseInt(e.target.value || "0", 10) || 0));
+            onChange({ duration_seconds: m * 60 + ss });
+          }}
+        />
+        <span className="text-xs text-muted-foreground">s</span>
+      </div>
+      <Button type="button" size="icon" variant="ghost" onClick={onRemove}><Trash2 className="h-4 w-4" /></Button>
     </div>
   );
 }
