@@ -109,6 +109,7 @@ export type Database = {
           name: string
           notes: string | null
           outcome: string | null
+          pa_names: string[]
           patient_ref: string | null
           performed_at: string
           role: string | null
@@ -130,6 +131,7 @@ export type Database = {
           name: string
           notes?: string | null
           outcome?: string | null
+          pa_names?: string[]
           patient_ref?: string | null
           performed_at?: string
           role?: string | null
@@ -151,6 +153,7 @@ export type Database = {
           name?: string
           notes?: string | null
           outcome?: string | null
+          pa_names?: string[]
           patient_ref?: string | null
           performed_at?: string
           role?: string | null
@@ -158,6 +161,48 @@ export type Database = {
           surgeon?: string | null
           total_duration_seconds?: number | null
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      team_pas: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      team_surgeons: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
           user_id?: string
         }
         Relationships: []
