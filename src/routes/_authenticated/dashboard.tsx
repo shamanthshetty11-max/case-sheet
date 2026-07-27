@@ -14,7 +14,7 @@ import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGri
 import type { Procedure } from "@/lib/procedures";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard — ProcLog" }, { name: "description", content: "Your procedure logbook." }] }),
+  head: () => ({ meta: [{ title: "Dashboard — CaseSync" }, { name: "description", content: "Your CaseSync procedure logbook." }] }),
   component: Dashboard,
 });
 
@@ -129,12 +129,12 @@ function Dashboard() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <h3 className="truncate font-medium">{p.name}</h3>
-                      {p.role && <Badge variant="secondary" className="capitalize">{p.role}</Badge>}
+                      {p.category && <Badge variant="secondary">{p.category}</Badge>}
                     </div>
                     <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                       <span>{format(new Date(p.performed_at), "MMM d, yyyy")}</span>
-                      {p.category && <span>{p.category}</span>}
                       {p.site && <span>{p.site}</span>}
+                      {p.surgeon && <span>Dr. {p.surgeon.replace(/^dr\.?\s+/i, "")}</span>}
                       {p.patient_ref && <span>Pt: {p.patient_ref}</span>}
                       {p.total_duration_seconds != null && p.total_duration_seconds > 0 && <span>{formatDuration(p.total_duration_seconds)}</span>}
                     </div>
