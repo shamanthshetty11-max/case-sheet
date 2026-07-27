@@ -258,7 +258,7 @@ export function ProcedureForm({
         site: v.surgical_approach || null,
         surgeon: v.surgeon || null,
         assistant_surgeon: v.assistant_surgeon || null,
-        pa_names: paNames.length ? paNames : null,
+        pa_names: paNames.length ? paNames : undefined,
         complications: v.complications || null,
         notes: v.notes || null,
         total_duration_seconds: total || null,
