@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,6 +13,10 @@ import {
   addTeamPA,
   addTeamSurgeon,
   withDr,
+  listProcedureNames,
+  addProcedureName,
+  listPresets,
+  listPresetFields,
   type Procedure,
   type ProcedureStep,
   type Attachment,
@@ -24,6 +28,11 @@ import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { extractProcedureFromImage } from "@/lib/ai.functions";
 import { PROCEDURE_CATEGORIES as CATS } from "@/lib/procedures";
+import { useBlocker } from "@tanstack/react-router";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type StepDraft = { id?: string; label: string; duration_seconds: number; order_idx: number };
 
@@ -38,6 +47,7 @@ export type ProcedureFormValues = {
   assistant_surgeon: string;
   complications: string;
   notes: string;
+  closed_by: string;
 };
 
 function toLocalInput(iso: string): string {
@@ -72,8 +82,14 @@ export function ProcedureForm({
     assistant_surgeon: initial?.assistant_surgeon ?? "",
     complications: initial?.complications ?? "",
     notes: initial?.notes ?? "",
+    closed_by: initial?.closed_by ?? "",
   });
   const [paNames, setPaNames] = useState<string[]>(initial?.pa_names ?? []);
+  const [presetValues, setPresetValues] = useState<Record<string, string>>(
+    (initial?.preset_values as Record<string, string> | null) ?? {},
+  );
+  const [presetId, setPresetId] = useState<string | null>(initial?.preset_id ?? null);
+  const [dirty, setDirty] = useState(false);
   const [steps, setSteps] = useState<StepDraft[]>(
     initialSteps.map((s) => ({ id: s.id, label: s.label, duration_seconds: s.duration_seconds, order_idx: s.order_idx })),
   );
@@ -88,9 +104,55 @@ export function ProcedureForm({
   const qc = useQueryClient();
   const surgeonsQ = useQuery({ queryKey: ["team_surgeons"], queryFn: listTeamSurgeons });
   const pasQ = useQuery({ queryKey: ["team_pas"], queryFn: listTeamPAs });
+  const namesQ = useQuery({ queryKey: ["procedure_names"], queryFn: listProcedureNames });
+  const presetsQ = useQuery({ queryKey: ["procedure_presets"], queryFn: listPresets });
+  const presetFieldsQ = useQuery({ queryKey: ["procedure_preset_fields"], queryFn: listPresetFields });
+
+  const namesInCategory = useMemo(
+    () => (namesQ.data ?? []).filter((n) => n.category === v.category),
+    [namesQ.data, v.category],
+  );
+  const activePresetFields = useMemo(
+    () => (presetFieldsQ.data ?? []).filter((f) => f.preset_id === presetId),
+    [presetFieldsQ.data, presetId],
+  );
+
+  // When the user picks a saved procedure name, auto-load its preset defaults + preset id
+  function applyProcedureName(name: string) {
+    setV((prev) => ({ ...prev, name }));
+    const entry = (namesQ.data ?? []).find((n) => n.category === v.category && n.name === name);
+    if (entry?.preset_id) {
+      setPresetId(entry.preset_id);
+      const preset = (presetsQ.data ?? []).find((p) => p.id === entry.preset_id);
+      if (preset?.defaults && typeof preset.defaults === "object") {
+        const d = preset.defaults as Record<string, string>;
+        setV((prev) => ({
+          ...prev,
+          surgical_approach: prev.surgical_approach || d.surgical_approach || "",
+          diagnosis: prev.diagnosis || d.diagnosis || "",
+        }));
+      }
+    } else {
+      setPresetId(null);
+    }
+  }
+
+  // useBlocker: prompt before leaving with unsaved changes
+  const { proceed, reset, status } = useBlocker({
+    shouldBlockFn: () => dirty && !saving,
+    withResolver: true,
+  });
+
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
 
   function set<K extends keyof ProcedureFormValues>(k: K, val: ProcedureFormValues[K]) {
     setV((s) => ({ ...s, [k]: val }));
+    setDirty(true);
   }
 
   async function readAsDataUrl(file: File): Promise<string> {
@@ -262,6 +324,10 @@ export function ProcedureForm({
         complications: v.complications || null,
         notes: v.notes || null,
         total_duration_seconds: total || null,
+        closed_by: v.closed_by || null,
+        preset_id: presetId,
+        preset_values: Object.keys(presetValues).length ? presetValues : null,
+        status: initial?.status === "in_progress" ? "completed" : (initial?.status ?? "completed"),
       };
 
       let pid = procedureId;
@@ -284,6 +350,7 @@ export function ProcedureForm({
         if (error) throw error;
       }
 
+      setDirty(false);
       toast.success(procedureId ? "Updated" : "Procedure saved");
       onSaved(pid!);
     } catch (err) {
