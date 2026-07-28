@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Download, Plus, Search, Activity, CalendarDays, TrendingUp, Clock, Timer, PlayCircle, StopCircle } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { format, isSameDay, isSameMonth, startOfMonth, startOfWeek, subDays } from "date-fns";
@@ -398,7 +398,7 @@ function LiveCaseCard() {
 
 function LiveTimer({ since }: { since: string }) {
   const [now, setNow] = useState(Date.now());
-  useMemo(() => {
+  useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
