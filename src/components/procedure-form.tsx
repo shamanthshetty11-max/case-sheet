@@ -555,15 +555,15 @@ export function ProcedureForm({
         <Button type="submit" disabled={saving}>{saving ? "Saving…" : procedureId ? "Save changes" : "Save procedure"}</Button>
       </div>
 
-      <AlertDialog open={status === "blocked"} onOpenChange={(o) => { if (!o) reset(); }}>
+      <AlertDialog open={status === "blocked"} onOpenChange={(o) => { if (!o) reset?.(); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Discard your changes?</AlertDialogTitle>
             <AlertDialogDescription>You have unsaved changes on this log. Leaving now will discard them.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => reset()}>Stay</AlertDialogCancel>
-            <AlertDialogAction onClick={() => proceed()}>Discard &amp; leave</AlertDialogAction>
+            <AlertDialogCancel onClick={() => reset?.()}>Stay</AlertDialogCancel>
+            <AlertDialogAction onClick={() => proceed?.()}>Discard &amp; leave</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -704,5 +704,55 @@ function StepRow({ step, onChange, onRemove }: { step: StepDraft; onChange: (p: 
       </div>
       <Button type="button" size="icon" variant="ghost" onClick={onRemove}><Trash2 className="h-4 w-4" /></Button>
     </div>
+  );
+}
+
+function ProcedureNameSelect({
+  value,
+  options,
+  categorySelected,
+  onChange,
+  onAddNew,
+}: {
+  value: string;
+  options: string[];
+  categorySelected: boolean;
+  onChange: (v: string) => void;
+  onAddNew: () => Promise<string | null>;
+}) {
+  const [manual, setManual] = useState(false);
+  const inList = value && options.includes(value);
+  if (manual || (value && !inList) || !categorySelected) {
+    return (
+      <div className="flex gap-1">
+        <Input required placeholder="e.g. CABG x3" value={value} onChange={(e) => onChange(e.target.value)} />
+        {categorySelected && (
+          <Button type="button" variant="ghost" size="icon" aria-label="Pick from list" onClick={() => setManual(false)}>
+            <X className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    );
+  }
+  return (
+    <Select
+      value={value || ""}
+      onValueChange={async (val) => {
+        if (val === NEW_VALUE) {
+          const added = await onAddNew();
+          if (added) onChange(added);
+          return;
+        }
+        if (val === "__manual__") { setManual(true); onChange(""); return; }
+        onChange(val);
+      }}
+    >
+      <SelectTrigger><SelectValue placeholder="Select procedure name" /></SelectTrigger>
+      <SelectContent>
+        {options.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+        <SelectItem value={NEW_VALUE}>+ Add to catalog…</SelectItem>
+        <SelectItem value="__manual__">Type a one-off name…</SelectItem>
+      </SelectContent>
+    </Select>
   );
 }
