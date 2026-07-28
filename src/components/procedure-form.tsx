@@ -255,6 +255,20 @@ export function ProcedureForm({
     }
   }
 
+  async function addNewProcedureName(): Promise<string | null> {
+    if (!v.category) { toast.info("Pick a category first"); return null; }
+    const name = window.prompt(`Add a procedure name under "${v.category}":`);
+    if (!name?.trim()) return null;
+    try {
+      const created = await addProcedureName(v.category, name.trim());
+      qc.invalidateQueries({ queryKey: ["procedure_names"] });
+      return created.name;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save name");
+      return null;
+    }
+  }
+
   async function uploadFiles(files: FileList | null, pid: string) {
     if (!files || !files.length) return [] as Attachment[];
     const { data: userData } = await supabase.auth.getUser();
@@ -387,7 +401,15 @@ export function ProcedureForm({
         <CardContent className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-3">
             <Field label="Date & time"><Input type="datetime-local" required value={v.performed_at} onChange={(e) => set("performed_at", e.target.value)} /></Field>
-            <Field label="Procedure name"><Input required placeholder="e.g. CABG x3" value={v.name} onChange={(e) => set("name", e.target.value)} /></Field>
+            <Field label="Procedure name">
+              <ProcedureNameSelect
+                value={v.name}
+                options={namesInCategory.map((n) => n.name)}
+                categorySelected={!!v.category}
+                onChange={(name) => applyProcedureName(name)}
+                onAddNew={addNewProcedureName}
+              />
+            </Field>
             <Field label="Category">
               <Select value={v.category} onValueChange={(x) => set("category", x)}>
                 <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
@@ -432,10 +454,41 @@ export function ProcedureForm({
         </CardContent>
       </Card>
 
+      {activePresetFields.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">Preset fields</CardTitle></CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            {activePresetFields.map((f) => (
+              <Field key={f.id} label={f.label} className={f.field_type === "textarea" ? "md:col-span-2" : ""}>
+                {f.field_type === "textarea" ? (
+                  <Textarea rows={3} value={presetValues[f.label] ?? ""} onChange={(e) => { setPresetValues((p) => ({ ...p, [f.label]: e.target.value })); setDirty(true); }} />
+                ) : (
+                  <Input type={f.field_type === "number" ? "number" : "text"} value={presetValues[f.label] ?? ""} onChange={(e) => { setPresetValues((p) => ({ ...p, [f.label]: e.target.value })); setDirty(true); }} />
+                )}
+              </Field>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader><CardTitle className="text-base">Notes</CardTitle></CardHeader>
         <CardContent>
           <Field label="Notes"><Textarea rows={5} value={v.notes} onChange={(e) => set("notes", e.target.value)} /></Field>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Closure</CardTitle></CardHeader>
+        <CardContent>
+          <Field label="Closed by">
+            <SurgeonSelect
+              value={v.closed_by}
+              options={(surgeonsQ.data ?? []).map((s) => s.name)}
+              onChange={(name) => set("closed_by", name)}
+              onAddNew={addNewSurgeon}
+            />
+          </Field>
         </CardContent>
       </Card>
 
@@ -501,6 +554,19 @@ export function ProcedureForm({
       <div className="flex justify-end gap-2">
         <Button type="submit" disabled={saving}>{saving ? "Saving…" : procedureId ? "Save changes" : "Save procedure"}</Button>
       </div>
+
+      <AlertDialog open={status === "blocked"} onOpenChange={(o) => { if (!o) reset(); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard your changes?</AlertDialogTitle>
+            <AlertDialogDescription>You have unsaved changes on this log. Leaving now will discard them.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => reset()}>Stay</AlertDialogCancel>
+            <AlertDialogAction onClick={() => proceed()}>Discard &amp; leave</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </form>
   );
 }
