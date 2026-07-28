@@ -1,13 +1,15 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { listProcedures, exportCsv, PROCEDURE_CATEGORIES, formatDuration } from "@/lib/procedures";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { listProcedures, exportCsv, PROCEDURE_CATEGORIES, formatDuration, scrubIn, scrubOut, getInProgressProcedure } from "@/lib/procedures";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, Plus, Search, Activity, CalendarDays, TrendingUp, Clock } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Download, Plus, Search, Activity, CalendarDays, TrendingUp, Clock, Timer, PlayCircle, StopCircle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { Label } from "@/components/ui/label";
 import { format, isSameDay, isSameMonth, startOfMonth, startOfWeek, subDays } from "date-fns";
 import { DayPicker, type DayButtonProps } from "react-day-picker";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
@@ -61,9 +63,11 @@ function Dashboard() {
           <Button variant="outline" onClick={() => exportCsv(filtered)} disabled={!filtered.length}>
             <Download className="mr-1.5 h-4 w-4" /> Export CSV
           </Button>
-          <Link to="/procedures/new"><Button><Plus className="mr-1.5 h-4 w-4" /> New</Button></Link>
+          <Link to="/procedures/new"><Button><Plus className="mr-1.5 h-4 w-4" /> New log</Button></Link>
         </div>
       </div>
+
+      <LiveCaseCard />
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card><CardHeader className="pb-2"><CardDescription>Total</CardDescription><CardTitle className="text-3xl">{stats.total}</CardTitle></CardHeader></Card>
@@ -303,4 +307,101 @@ function MiniStat({ icon, label, value }: { icon: React.ReactNode; label: string
       <div className="text-lg font-semibold leading-tight">{value}</div>
     </div>
   );
+}
+
+function LiveCaseCard() {
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const { data: live } = useQuery({ queryKey: ["live_procedure"], queryFn: getInProgressProcedure, refetchInterval: 15000 });
+  const [form, setForm] = useState({ patient_name: "", ip_number: "", diagnosis: "", name: "", category: "" });
+  const [busy, setBusy] = useState(false);
+
+  async function onScrubIn(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.name.trim()) { toast.error("Procedure name is required"); return; }
+    setBusy(true);
+    try {
+      await scrubIn({ ...form, name: form.name.trim() });
+      qc.invalidateQueries({ queryKey: ["live_procedure"] });
+      qc.invalidateQueries({ queryKey: ["procedures"] });
+      setForm({ patient_name: "", ip_number: "", diagnosis: "", name: "", category: "" });
+      toast.success("Scrubbed in — timer started");
+    } catch (err) { toast.error(err instanceof Error ? err.message : "Failed"); }
+    finally { setBusy(false); }
+  }
+  async function onScrubOut() {
+    if (!live) return;
+    setBusy(true);
+    try {
+      await scrubOut(live.id);
+      qc.invalidateQueries({ queryKey: ["live_procedure"] });
+      qc.invalidateQueries({ queryKey: ["procedures"] });
+      toast.success("Scrubbed out — add the rest of the details");
+      navigate({ to: "/procedures/$id", params: { id: live.id } });
+    } catch (err) { toast.error(err instanceof Error ? err.message : "Failed"); }
+    finally { setBusy(false); }
+  }
+
+  if (live) {
+    return (
+      <Card className="border-primary/40 bg-primary/5">
+        <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+          <div className="flex items-center gap-2">
+            <Timer className="h-4 w-4 text-primary animate-pulse" />
+            <CardTitle className="text-base">Case in progress</CardTitle>
+          </div>
+          <LiveTimer since={live.scrub_in_at ?? live.created_at} />
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="text-sm">
+            <div className="font-medium">{live.name}{live.category ? ` · ${live.category}` : ""}</div>
+            <div className="text-xs text-muted-foreground">
+              {[live.patient_name && `Pt: ${live.patient_name}`, live.ip_number && `IP: ${live.ip_number}`, live.indication && `Dx: ${live.indication}`].filter(Boolean).join(" · ") || "No pre-op details"}
+            </div>
+          </div>
+          <Button onClick={onScrubOut} disabled={busy}><StopCircle className="mr-1.5 h-4 w-4" /> Scrub out</Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+        <div className="flex items-center gap-2">
+          <PlayCircle className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-base">Quick scrub-in</CardTitle>
+        </div>
+        <div className="text-xs text-muted-foreground">Pre-op essentials · we'll time the case</div>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={onScrubIn} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="space-y-1.5"><Label className="text-xs">Patient name</Label><Input value={form.patient_name} onChange={(e) => setForm({ ...form, patient_name: e.target.value })} /></div>
+          <div className="space-y-1.5"><Label className="text-xs">IP number</Label><Input value={form.ip_number} onChange={(e) => setForm({ ...form, ip_number: e.target.value })} /></div>
+          <div className="space-y-1.5"><Label className="text-xs">Diagnosis</Label><Input value={form.diagnosis} onChange={(e) => setForm({ ...form, diagnosis: e.target.value })} /></div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Category</Label>
+            <Select value={form.category} onValueChange={(x) => setForm({ ...form, category: x })}>
+              <SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger>
+              <SelectContent>{PROCEDURE_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5"><Label className="text-xs">Procedure name *</Label><Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+          <div className="sm:col-span-2 lg:col-span-5 flex justify-end">
+            <Button type="submit" disabled={busy}><PlayCircle className="mr-1.5 h-4 w-4" /> Scrub in</Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function LiveTimer({ since }: { since: string }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const elapsed = Math.max(0, Math.floor((now - new Date(since).getTime()) / 1000));
+  return <span className="font-mono text-sm text-primary">{formatDuration(elapsed)}</span>;
 }

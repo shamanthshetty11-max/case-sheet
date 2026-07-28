@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, redirect, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Activity, Plus, LayoutDashboard, LogOut, Users } from "lucide-react";
+import { Activity, Plus, LayoutDashboard, LogOut, Users, BookMarked } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -51,9 +51,14 @@ function AuthedLayout() {
                 <Users className="mr-1.5 h-4 w-4" /> Team
               </Button>
             </Link>
+            <Link to="/catalog">
+              <Button variant={pathname === "/catalog" ? "secondary" : "ghost"} size="sm">
+                <BookMarked className="mr-1.5 h-4 w-4" /> Catalog
+              </Button>
+            </Link>
             <Link to="/procedures/new">
               <Button size="sm">
-                <Plus className="mr-1.5 h-4 w-4" /> New procedure
+                <Plus className="mr-1.5 h-4 w-4" /> New log
               </Button>
             </Link>
             <ThemeToggle />

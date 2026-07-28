@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,6 +13,10 @@ import {
   addTeamPA,
   addTeamSurgeon,
   withDr,
+  listProcedureNames,
+  addProcedureName,
+  listPresets,
+  listPresetFields,
   type Procedure,
   type ProcedureStep,
   type Attachment,
@@ -24,6 +28,11 @@ import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { extractProcedureFromImage } from "@/lib/ai.functions";
 import { PROCEDURE_CATEGORIES as CATS } from "@/lib/procedures";
+import { useBlocker } from "@tanstack/react-router";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type StepDraft = { id?: string; label: string; duration_seconds: number; order_idx: number };
 
@@ -38,6 +47,7 @@ export type ProcedureFormValues = {
   assistant_surgeon: string;
   complications: string;
   notes: string;
+  closed_by: string;
 };
 
 function toLocalInput(iso: string): string {
@@ -72,8 +82,14 @@ export function ProcedureForm({
     assistant_surgeon: initial?.assistant_surgeon ?? "",
     complications: initial?.complications ?? "",
     notes: initial?.notes ?? "",
+    closed_by: initial?.closed_by ?? "",
   });
   const [paNames, setPaNames] = useState<string[]>(initial?.pa_names ?? []);
+  const [presetValues, setPresetValues] = useState<Record<string, string>>(
+    (initial?.preset_values as Record<string, string> | null) ?? {},
+  );
+  const [presetId, setPresetId] = useState<string | null>(initial?.preset_id ?? null);
+  const [dirty, setDirty] = useState(false);
   const [steps, setSteps] = useState<StepDraft[]>(
     initialSteps.map((s) => ({ id: s.id, label: s.label, duration_seconds: s.duration_seconds, order_idx: s.order_idx })),
   );
@@ -88,9 +104,55 @@ export function ProcedureForm({
   const qc = useQueryClient();
   const surgeonsQ = useQuery({ queryKey: ["team_surgeons"], queryFn: listTeamSurgeons });
   const pasQ = useQuery({ queryKey: ["team_pas"], queryFn: listTeamPAs });
+  const namesQ = useQuery({ queryKey: ["procedure_names"], queryFn: listProcedureNames });
+  const presetsQ = useQuery({ queryKey: ["procedure_presets"], queryFn: listPresets });
+  const presetFieldsQ = useQuery({ queryKey: ["procedure_preset_fields"], queryFn: listPresetFields });
+
+  const namesInCategory = useMemo(
+    () => (namesQ.data ?? []).filter((n) => n.category === v.category),
+    [namesQ.data, v.category],
+  );
+  const activePresetFields = useMemo(
+    () => (presetFieldsQ.data ?? []).filter((f) => f.preset_id === presetId),
+    [presetFieldsQ.data, presetId],
+  );
+
+  // When the user picks a saved procedure name, auto-load its preset defaults + preset id
+  function applyProcedureName(name: string) {
+    setV((prev) => ({ ...prev, name }));
+    const entry = (namesQ.data ?? []).find((n) => n.category === v.category && n.name === name);
+    if (entry?.preset_id) {
+      setPresetId(entry.preset_id);
+      const preset = (presetsQ.data ?? []).find((p) => p.id === entry.preset_id);
+      if (preset?.defaults && typeof preset.defaults === "object") {
+        const d = preset.defaults as Record<string, string>;
+        setV((prev) => ({
+          ...prev,
+          surgical_approach: prev.surgical_approach || d.surgical_approach || "",
+          diagnosis: prev.diagnosis || d.diagnosis || "",
+        }));
+      }
+    } else {
+      setPresetId(null);
+    }
+  }
+
+  // useBlocker: prompt before leaving with unsaved changes
+  const { proceed, reset, status } = useBlocker({
+    shouldBlockFn: () => dirty && !saving,
+    withResolver: true,
+  });
+
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
 
   function set<K extends keyof ProcedureFormValues>(k: K, val: ProcedureFormValues[K]) {
     setV((s) => ({ ...s, [k]: val }));
+    setDirty(true);
   }
 
   async function readAsDataUrl(file: File): Promise<string> {
@@ -193,6 +255,20 @@ export function ProcedureForm({
     }
   }
 
+  async function addNewProcedureName(): Promise<string | null> {
+    if (!v.category) { toast.info("Pick a category first"); return null; }
+    const name = window.prompt(`Add a procedure name under "${v.category}":`);
+    if (!name?.trim()) return null;
+    try {
+      const created = await addProcedureName(v.category, name.trim());
+      qc.invalidateQueries({ queryKey: ["procedure_names"] });
+      return created.name;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save name");
+      return null;
+    }
+  }
+
   async function uploadFiles(files: FileList | null, pid: string) {
     if (!files || !files.length) return [] as Attachment[];
     const { data: userData } = await supabase.auth.getUser();
@@ -262,6 +338,10 @@ export function ProcedureForm({
         complications: v.complications || null,
         notes: v.notes || null,
         total_duration_seconds: total || null,
+        closed_by: v.closed_by || null,
+        preset_id: presetId,
+        preset_values: Object.keys(presetValues).length ? presetValues : null,
+        status: initial?.status === "in_progress" ? "completed" : (initial?.status ?? "completed"),
       };
 
       let pid = procedureId;
@@ -284,6 +364,7 @@ export function ProcedureForm({
         if (error) throw error;
       }
 
+      setDirty(false);
       toast.success(procedureId ? "Updated" : "Procedure saved");
       onSaved(pid!);
     } catch (err) {
@@ -320,7 +401,15 @@ export function ProcedureForm({
         <CardContent className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-3">
             <Field label="Date & time"><Input type="datetime-local" required value={v.performed_at} onChange={(e) => set("performed_at", e.target.value)} /></Field>
-            <Field label="Procedure name"><Input required placeholder="e.g. CABG x3" value={v.name} onChange={(e) => set("name", e.target.value)} /></Field>
+            <Field label="Procedure name">
+              <ProcedureNameSelect
+                value={v.name}
+                options={namesInCategory.map((n) => n.name)}
+                categorySelected={!!v.category}
+                onChange={(name) => applyProcedureName(name)}
+                onAddNew={addNewProcedureName}
+              />
+            </Field>
             <Field label="Category">
               <Select value={v.category} onValueChange={(x) => set("category", x)}>
                 <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
@@ -365,10 +454,41 @@ export function ProcedureForm({
         </CardContent>
       </Card>
 
+      {activePresetFields.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">Preset fields</CardTitle></CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            {activePresetFields.map((f) => (
+              <Field key={f.id} label={f.label} className={f.field_type === "textarea" ? "md:col-span-2" : ""}>
+                {f.field_type === "textarea" ? (
+                  <Textarea rows={3} value={presetValues[f.label] ?? ""} onChange={(e) => { setPresetValues((p) => ({ ...p, [f.label]: e.target.value })); setDirty(true); }} />
+                ) : (
+                  <Input type={f.field_type === "number" ? "number" : "text"} value={presetValues[f.label] ?? ""} onChange={(e) => { setPresetValues((p) => ({ ...p, [f.label]: e.target.value })); setDirty(true); }} />
+                )}
+              </Field>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader><CardTitle className="text-base">Notes</CardTitle></CardHeader>
         <CardContent>
           <Field label="Notes"><Textarea rows={5} value={v.notes} onChange={(e) => set("notes", e.target.value)} /></Field>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Closure</CardTitle></CardHeader>
+        <CardContent>
+          <Field label="Closed by">
+            <SurgeonSelect
+              value={v.closed_by}
+              options={(surgeonsQ.data ?? []).map((s) => s.name)}
+              onChange={(name) => set("closed_by", name)}
+              onAddNew={addNewSurgeon}
+            />
+          </Field>
         </CardContent>
       </Card>
 
@@ -434,6 +554,19 @@ export function ProcedureForm({
       <div className="flex justify-end gap-2">
         <Button type="submit" disabled={saving}>{saving ? "Saving…" : procedureId ? "Save changes" : "Save procedure"}</Button>
       </div>
+
+      <AlertDialog open={status === "blocked"} onOpenChange={(o) => { if (!o) reset?.(); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard your changes?</AlertDialogTitle>
+            <AlertDialogDescription>You have unsaved changes on this log. Leaving now will discard them.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => reset?.()}>Stay</AlertDialogCancel>
+            <AlertDialogAction onClick={() => proceed?.()}>Discard &amp; leave</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </form>
   );
 }
@@ -571,5 +704,55 @@ function StepRow({ step, onChange, onRemove }: { step: StepDraft; onChange: (p: 
       </div>
       <Button type="button" size="icon" variant="ghost" onClick={onRemove}><Trash2 className="h-4 w-4" /></Button>
     </div>
+  );
+}
+
+function ProcedureNameSelect({
+  value,
+  options,
+  categorySelected,
+  onChange,
+  onAddNew,
+}: {
+  value: string;
+  options: string[];
+  categorySelected: boolean;
+  onChange: (v: string) => void;
+  onAddNew: () => Promise<string | null>;
+}) {
+  const [manual, setManual] = useState(false);
+  const inList = value && options.includes(value);
+  if (manual || (value && !inList) || !categorySelected) {
+    return (
+      <div className="flex gap-1">
+        <Input required placeholder="e.g. CABG x3" value={value} onChange={(e) => onChange(e.target.value)} />
+        {categorySelected && (
+          <Button type="button" variant="ghost" size="icon" aria-label="Pick from list" onClick={() => setManual(false)}>
+            <X className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    );
+  }
+  return (
+    <Select
+      value={value || ""}
+      onValueChange={async (val) => {
+        if (val === NEW_VALUE) {
+          const added = await onAddNew();
+          if (added) onChange(added);
+          return;
+        }
+        if (val === "__manual__") { setManual(true); onChange(""); return; }
+        onChange(val);
+      }}
+    >
+      <SelectTrigger><SelectValue placeholder="Select procedure name" /></SelectTrigger>
+      <SelectContent>
+        {options.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+        <SelectItem value={NEW_VALUE}>+ Add to catalog…</SelectItem>
+        <SelectItem value="__manual__">Type a one-off name…</SelectItem>
+      </SelectContent>
+    </Select>
   );
 }
