@@ -55,6 +55,109 @@ export type Database = {
           },
         ]
       }
+      procedure_names: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          name: string
+          preset_id: string | null
+          sort_order: number
+          user_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          name: string
+          preset_id?: string | null
+          sort_order?: number
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          name?: string
+          preset_id?: string | null
+          sort_order?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procedure_names_preset_id_fkey"
+            columns: ["preset_id"]
+            isOneToOne: false
+            referencedRelation: "procedure_presets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procedure_preset_fields: {
+        Row: {
+          created_at: string
+          field_type: string
+          id: string
+          label: string
+          preset_id: string
+          sort_order: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          field_type?: string
+          id?: string
+          label: string
+          preset_id: string
+          sort_order?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          field_type?: string
+          id?: string
+          label?: string
+          preset_id?: string
+          sort_order?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procedure_preset_fields_preset_id_fkey"
+            columns: ["preset_id"]
+            isOneToOne: false
+            referencedRelation: "procedure_presets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      procedure_presets: {
+        Row: {
+          created_at: string
+          defaults: Json
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          defaults?: Json
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          defaults?: Json
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       procedure_steps: {
         Row: {
           created_at: string
@@ -100,20 +203,28 @@ export type Database = {
         Row: {
           assistant_surgeon: string | null
           category: string | null
+          closed_by: string | null
           complications: string | null
           created_at: string
           difficulty: number | null
           id: string
           indication: string | null
+          ip_number: string | null
           lessons: string | null
           name: string
           notes: string | null
           outcome: string | null
           pa_names: string[]
+          patient_name: string | null
           patient_ref: string | null
           performed_at: string
+          preset_id: string | null
+          preset_values: Json
           role: string | null
+          scrub_in_at: string | null
+          scrub_out_at: string | null
           site: string | null
+          status: string
           surgeon: string | null
           total_duration_seconds: number | null
           updated_at: string
@@ -122,20 +233,28 @@ export type Database = {
         Insert: {
           assistant_surgeon?: string | null
           category?: string | null
+          closed_by?: string | null
           complications?: string | null
           created_at?: string
           difficulty?: number | null
           id?: string
           indication?: string | null
+          ip_number?: string | null
           lessons?: string | null
           name: string
           notes?: string | null
           outcome?: string | null
           pa_names?: string[]
+          patient_name?: string | null
           patient_ref?: string | null
           performed_at?: string
+          preset_id?: string | null
+          preset_values?: Json
           role?: string | null
+          scrub_in_at?: string | null
+          scrub_out_at?: string | null
           site?: string | null
+          status?: string
           surgeon?: string | null
           total_duration_seconds?: number | null
           updated_at?: string
@@ -144,20 +263,28 @@ export type Database = {
         Update: {
           assistant_surgeon?: string | null
           category?: string | null
+          closed_by?: string | null
           complications?: string | null
           created_at?: string
           difficulty?: number | null
           id?: string
           indication?: string | null
+          ip_number?: string | null
           lessons?: string | null
           name?: string
           notes?: string | null
           outcome?: string | null
           pa_names?: string[]
+          patient_name?: string | null
           patient_ref?: string | null
           performed_at?: string
+          preset_id?: string | null
+          preset_values?: Json
           role?: string | null
+          scrub_in_at?: string | null
+          scrub_out_at?: string | null
           site?: string | null
+          status?: string
           surgeon?: string | null
           total_duration_seconds?: number | null
           updated_at?: string
@@ -170,18 +297,21 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          sort_order: number
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
+          sort_order?: number
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
+          sort_order?: number
           user_id?: string
         }
         Relationships: []
@@ -191,18 +321,21 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          sort_order: number
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
+          sort_order?: number
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
+          sort_order?: number
           user_id?: string
         }
         Relationships: []
