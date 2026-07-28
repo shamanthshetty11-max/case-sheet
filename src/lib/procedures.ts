@@ -167,7 +167,7 @@ export async function addPreset(name: string) {
   return data as Preset;
 }
 export async function updatePreset(id: string, patch: Partial<Pick<Preset, "name" | "defaults">>) {
-  const { error } = await supabase.from("procedure_presets").update(patch).eq("id", id);
+  const { error } = await supabase.from("procedure_presets").update(patch as never).eq("id", id);
   if (error) throw error;
 }
 export async function deletePreset(id: string) {
