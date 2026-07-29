@@ -817,3 +817,72 @@ function ProcedureNameSelect({
     </Select>
   );
 }
+
+function ApproachSelect({
+  value, options, onChange, onAddNew,
+}: { value: string; options: string[]; onChange: (v: string) => void; onAddNew: () => Promise<string | null> }) {
+  const inList = value && options.includes(value);
+  const [manual, setManual] = useState(false);
+  if (manual || (value && !inList)) {
+    return (
+      <div className="flex gap-1">
+        <Input placeholder="e.g. Median sternotomy" value={value} onChange={(e) => onChange(e.target.value)} />
+        <Button type="button" variant="ghost" size="icon" onClick={() => { setManual(false); onChange(""); }}><X className="h-4 w-4" /></Button>
+      </div>
+    );
+  }
+  return (
+    <Select value={value || ""} onValueChange={async (val) => {
+      if (val === NEW_VALUE) { const added = await onAddNew(); if (added) onChange(added); return; }
+      if (val === "__manual__") { setManual(true); onChange(""); return; }
+      onChange(val);
+    }}>
+      <SelectTrigger><SelectValue placeholder="Select approach" /></SelectTrigger>
+      <SelectContent>
+        {options.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+        <SelectItem value={NEW_VALUE}>+ Add to catalog…</SelectItem>
+        <SelectItem value="__manual__">Type a one-off approach…</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
+function ClosedBySelect({
+  value, surgeons, pas, onChange, onAddNew,
+}: {
+  value: string;
+  surgeons: string[];
+  pas: string[];
+  onChange: (v: string) => void;
+  onAddNew: () => Promise<{ name: string; kind: "surgeon" | "pa" } | null>;
+}) {
+  // Encode surgeons with prefix so we can strip and apply salutation
+  const options = [
+    ...surgeons.map((s) => ({ label: withDr(s), val: `S::${s}` })),
+    ...pas.map((p) => ({ label: p, val: `P::${p}` })),
+  ];
+  const currentVal = (() => {
+    if (!value) return "";
+    const strippedDr = value.replace(/^dr\.?\s+/i, "");
+    if (surgeons.includes(strippedDr)) return `S::${strippedDr}`;
+    if (pas.includes(value)) return `P::${value}`;
+    return "";
+  })();
+  return (
+    <Select value={currentVal} onValueChange={async (val) => {
+      if (val === NEW_VALUE) {
+        const added = await onAddNew();
+        if (added) onChange(added.kind === "surgeon" ? withDr(added.name) : added.name);
+        return;
+      }
+      if (val.startsWith("S::")) onChange(withDr(val.slice(3)));
+      else if (val.startsWith("P::")) onChange(val.slice(3));
+    }}>
+      <SelectTrigger><SelectValue placeholder={value || "Select who closed the chest"} /></SelectTrigger>
+      <SelectContent>
+        {options.map((o) => <SelectItem key={o.val} value={o.val}>{o.label}</SelectItem>)}
+        <SelectItem value={NEW_VALUE}>+ Add new person…</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
