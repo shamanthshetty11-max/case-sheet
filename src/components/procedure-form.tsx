@@ -282,6 +282,36 @@ export function ProcedureForm({
     }
   }
 
+  async function addNewApproach(): Promise<string | null> {
+    const name = window.prompt("Add a surgical approach:");
+    if (!name?.trim()) return null;
+    try {
+      const created = await addSurgicalApproach(name.trim());
+      qc.invalidateQueries({ queryKey: ["surgical_approaches"] });
+      return created.name;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save approach");
+      return null;
+    }
+  }
+
+  async function addNewClosureMember(): Promise<{ name: string; kind: "surgeon" | "pa" } | null> {
+    const kindRaw = window.prompt("Add closure member — type 'S' for surgeon or 'P' for physician assistant:", "S");
+    if (!kindRaw) return null;
+    const kind: "surgeon" | "pa" = /^p/i.test(kindRaw.trim()) ? "pa" : "surgeon";
+    const name = window.prompt(kind === "surgeon" ? "Surgeon name (Dr. added automatically):" : "PA name:");
+    if (!name?.trim()) return null;
+    try {
+      const clean = kind === "surgeon" ? name.trim().replace(/^dr\.?\s+/i, "") : name.trim();
+      if (kind === "surgeon") { await addTeamSurgeon(clean); qc.invalidateQueries({ queryKey: ["team_surgeons"] }); }
+      else { await addTeamPA(clean); qc.invalidateQueries({ queryKey: ["team_pas"] }); }
+      return { name: clean, kind };
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save");
+      return null;
+    }
+  }
+
   async function uploadFiles(files: FileList | null, pid: string) {
     if (!files || !files.length) return [] as Attachment[];
     const { data: userData } = await supabase.auth.getUser();
