@@ -105,6 +105,94 @@ export async function reorderTeam(table: "team_surgeons" | "team_pas", ids: stri
   );
 }
 
+// -------- Surgical approaches --------
+export type SurgicalApproach = { id: string; name: string; sort_order: number; created_at: string };
+
+export async function listSurgicalApproaches(): Promise<SurgicalApproach[]> {
+  const { data, error } = await supabase
+    .from("surgical_approaches")
+    .select("id,name,sort_order,created_at")
+    .order("sort_order").order("created_at");
+  if (error) throw error;
+  return (data ?? []) as SurgicalApproach[];
+}
+export async function addSurgicalApproach(name: string): Promise<SurgicalApproach> {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) throw new Error("Not signed in");
+  const { data, error } = await supabase.from("surgical_approaches").insert({ user_id: u.user.id, name }).select().single();
+  if (error) throw error;
+  return data as SurgicalApproach;
+}
+export async function deleteSurgicalApproach(id: string) {
+  const { error } = await supabase.from("surgical_approaches").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// -------- Re-explorations --------
+export type Reexploration = {
+  id: string;
+  procedure_id: string;
+  user_id: string;
+  started_at: string;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  reason: string | null;
+  notes: string | null;
+  created_at: string;
+};
+
+export async function getActiveReexploration(): Promise<Reexploration | null> {
+  const { data, error } = await supabase
+    .from("procedure_reexplorations")
+    .select("*")
+    .is("ended_at", null)
+    .order("started_at", { ascending: false })
+    .limit(1);
+  if (error) throw error;
+  return (data?.[0] as Reexploration) ?? null;
+}
+
+export async function startReexploration(procedure_id: string): Promise<Reexploration> {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) throw new Error("Not signed in");
+  const { data, error } = await supabase.from("procedure_reexplorations").insert({
+    procedure_id, user_id: u.user.id, started_at: new Date().toISOString(),
+  }).select().single();
+  if (error) throw error;
+  return data as Reexploration;
+}
+
+export async function endReexploration(id: string, reason: string, notes: string): Promise<Reexploration> {
+  const { data: existing, error: e1 } = await supabase.from("procedure_reexplorations").select("started_at,procedure_id").eq("id", id).single();
+  if (e1) throw e1;
+  const now = new Date();
+  const startedAt = existing?.started_at ? new Date(existing.started_at) : now;
+  const duration = Math.max(0, Math.round((now.getTime() - startedAt.getTime()) / 1000));
+  const { data, error } = await supabase.from("procedure_reexplorations").update({
+    ended_at: now.toISOString(),
+    duration_seconds: duration,
+    reason: reason || null,
+    notes: notes || null,
+  }).eq("id", id).select().single();
+  if (error) throw error;
+
+  // Append summary to parent procedure notes
+  const procedureId = (existing as { procedure_id: string }).procedure_id;
+  const { data: proc } = await supabase.from("procedures").select("notes").eq("id", procedureId).single();
+  const stamp = now.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  const block = `\n\n--- Re-exploration ${stamp} (${formatDuration(duration)}) ---${reason ? `\nReason: ${reason}` : ""}${notes ? `\nNotes: ${notes}` : ""}`;
+  const newNotes = ((proc?.notes as string | null) ?? "") + block;
+  await supabase.from("procedures").update({ notes: newNotes }).eq("id", procedureId);
+
+  return data as Reexploration;
+}
+
+export async function listReexplorations(procedureId: string): Promise<Reexploration[]> {
+  const { data, error } = await supabase.from("procedure_reexplorations").select("*").eq("procedure_id", procedureId).order("started_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as Reexploration[];
+}
+
 // -------- Procedure name catalog --------
 export type ProcedureName = {
   id: string;
