@@ -27,6 +27,8 @@ export type Procedure = {
   closed_by: string | null;
   preset_values: Record<string, string> | null;
   preset_id: string | null;
+  patient_height_cm: number | null;
+  patient_weight_kg: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -59,6 +61,8 @@ export const PROCEDURE_CATEGORIES = [
 ];
 
 export const ROLES: Procedure["role"][] = ["observed", "assisted", "performed", "supervised"];
+
+export const NOTES_TEMPLATE = `HbA1c - \nEF -  %\nLMCA - `;
 
 export type TeamMember = { id: string; name: string; created_at: string; sort_order?: number };
 
