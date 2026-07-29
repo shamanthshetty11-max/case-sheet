@@ -1,64 +1,76 @@
-## What we're building
+## What's changing
 
-Seven changes to CaseSync: reorderable team lists, a rename, an unsaved-changes guard, a scrub-in/out quick tracker, a procedures-per-category manager with reusable presets, a "closed by" field, and preset-driven custom fields on New log.
+Seven adjustments to New log, dashboard, and catalog: patient identity fields, reordered form sections, height/weight, preset placement, closure team dropdown, notes template, surgical-approach dropdown, and a "Re-ex" flow that appends to an existing case.
 
-## 1. Rename "New procedure" → "New log"
+## 1. Patient details replace patient reference
 
-- Update nav link label in `_authenticated/route.tsx`.
-- Update page heading and `<head>` title/description in `procedures.new.tsx`.
-- Update dashboard "New" button and empty-state CTA copy.
+- Add `patient_name` and `ip_number` inputs to New log (already columns on `procedures`); drop the "Patient reference (MRN / initials)" input.
+- Keep `patient_ref` in the type for back-compat with old rows but stop showing/writing it from the form.
 
-## 2. Unsaved-changes guard on New log
+## 2. Form section order
 
-- In `ProcedureForm`, track a `dirty` flag (any field change after mount).
-- Use TanStack Router `useBlocker({ withResolver: true, shouldBlockFn: () => dirty })` plus `enableBeforeUnload: dirty` for browser back/refresh.
-- Render a styled AlertDialog with "Save & leave", "Discard", "Stay". Only active on New log, not on the edit route (or on edit only when dirty too — same hook works). Clear `dirty` on successful save.
+Reorder the Core card so the row is: **Patient name · IP number · Category**, then a second row: **Date & time · Procedure name** (procedure name dropdown still filters by the chosen category, which now sits above it).
 
-## 3. Reorder surgeons and PAs (drag & drop)
+## 3. Height and weight in Core
 
-- Add `sort_order integer not null default 0` to `team_surgeons`, `team_pas`, and the new `procedure_names` table.
-- Install `@dnd-kit/core` + `@dnd-kit/sortable`.
-- In `team.tsx`, wrap each list in a `SortableContext` with drag handles; on drop, persist new order via a batched update helper in `procedures.ts` (`reorderTeamSurgeons(ids)` / `reorderTeamPAs(ids)`).
-- List queries order by `sort_order asc, created_at asc`.
-- Dropdowns in `procedure-form.tsx` inherit the saved order.
+- Add `patient_height_cm` (numeric) and `patient_weight_kg` (numeric) columns to `procedures` via migration.
+- Extend `Procedure` type + form values; render two compact number inputs in Core.
 
-## 4. Scrub in / Scrub out quick tracker (dashboard)
+## 4. Preset fields above Notes
 
-- New card on the dashboard: "Live case". Fields: Patient name, IP number, Diagnosis, Procedure name (uses the procedure-name dropdown for the chosen category if a category is picked; otherwise free text).
-- "Scrub in" button → creates a `procedures` row immediately with `performed_at = now()`, `status = 'in_progress'`, `scrub_in_at = now()`, plus whatever fields the user filled. Shows an "In progress" chip on the dashboard with a "Scrub out" button and elapsed timer.
-- "Scrub out" button → sets `scrub_out_at = now()`, `total_duration_seconds = diff`, `status = 'completed'`, then routes to `/procedures/$id` (edit) so the user finishes details.
-- Schema: add `status text default 'completed'`, `scrub_in_at timestamptz`, `scrub_out_at timestamptz`, `patient_name text`, `ip_number text` to `procedures`. Dashboard list shows a small "In progress" badge for `status = 'in_progress'`.
-- Only one active in-progress case shown at a time (most recent).
+Move the dynamic "Preset fields" section so it renders directly above the Notes section (currently sits lower). No data change.
 
-## 5. Procedure names per category + presets (dashboard settings)
+## 5. Closure dropdown with team members
 
-New page `/_authenticated/procedures-catalog` (linked from nav as "Catalog"):
+- Replace the plain "Closed by" input with a combined dropdown listing team surgeons (shown as "Dr. X") + PAs, plus an "Add new…" option that asks whether the new person is a surgeon or PA and saves them to the matching team list.
 
-- **Procedure names**: add/rename/reorder (drag & drop) entries grouped by category. Table `procedure_names(id, user_id, category, name, sort_order, preset_id nullable)`.
-- **Presets**: create a preset with a name and a list of custom fields (label + type: text / number / textarea). Table `procedure_presets(id, user_id, name)` + `procedure_preset_fields(id, preset_id, label, field_type, sort_order)`.
-- Assign a preset to one or many procedure names via a select on each procedure-name row (same window).
-- On New log: when Category is chosen, Procedure name becomes a dropdown of saved names for that category (plus "Custom…"). When a procedure name with a preset is selected, an extra "Preset fields" section renders below Clinical detail with those custom inputs. Values stored on `procedures.preset_values jsonb`.
-- Presets can also define default values for standard fields (surgical approach, default timed steps) stored in `procedure_presets.defaults jsonb`; applied on selection without overwriting user edits.
+## 6. Notes prefilled template
 
-## 6. "Closed by" field on New log
+When creating a *new* log (no `initial`), seed `notes` with:
 
-- Add `closed_by text` column on `procedures`.
-- New section at the bottom of the form ("Closure") with a single dropdown reusing the PA + surgeon lists combined (with "Add new" and auto-Dr. if picked from surgeons).
+```
+HbA1c - 
+EF -  %
+LMCA - 
+```
 
-## 7. Category ordering
+Do not overwrite existing notes on edit. AI scan still fills only if notes are still the untouched template (treat template as empty for the scan overwrite check).
 
-Already prioritized Cardiac surgery — no change unless you spot a gap.
+## 7. Surgical approach dropdown
+
+- New table `surgical_approaches(id, user_id, name, sort_order)` with the same RLS + GRANT pattern as `team_surgeons`.
+- CRUD helpers in `procedures.ts` (`listSurgicalApproaches`, `addSurgicalApproach`, `deleteSurgicalApproach`, `reorderSurgicalApproaches`).
+- In New log: swap the free-text "Surgical approach" for a dropdown of saved approaches with an "Add new…" inline option (mirrors surgeon select).
+- In Catalog page: add a small "Surgical approaches" management card (add / delete; reorder can piggyback on existing drag utilities in a later pass — out of scope this turn to keep diff small).
+
+## 8. Dashboard "Re-ex" button (re-exploration on an existing case)
+
+- New button next to Quick scrub-in header: **Re-ex**.
+- Opens a dialog listing recent completed procedures (search by name / patient / date). Picking one:
+  - Adds a `procedure_reexplorations` row (see schema) with `started_at = now()`.
+  - Sets that procedure into an "active re-ex" state visible on the dashboard (similar to Live case card), showing timer + Scrub out.
+  - Scrub-out records `ended_at`, `duration_seconds`, and prompts for `reason` + `notes` (textarea). On save, appends a formatted block to the parent procedure's `notes` (`--- Re-exploration MMM d, HH:mm (duration) ---\nReason: …\nNotes: …`) so the info lives on the original log, per user's "under the previous log itself" requirement. Also stored structurally in the re-ex table for future reporting.
+- Only one active re-ex at a time. Navigating to the parent procedure shows the re-ex entries in a new "Re-explorations" section on the detail page (read-only list with time + duration + reason).
 
 ## Technical details
 
-- **Migration** (single call): add columns to `procedures` (`status`, `scrub_in_at`, `scrub_out_at`, `patient_name`, `ip_number`, `closed_by`, `preset_values jsonb default '{}'`); add `sort_order` to `team_surgeons`, `team_pas`; create `procedure_names`, `procedure_presets`, `procedure_preset_fields` with RLS scoped to `auth.uid()`, GRANTs to `authenticated` + `service_role`, and `updated_at` triggers where relevant.
-- **procedures.ts**: extend `Procedure` type, add CRUD for procedure names, presets, preset fields, reorder helpers, `scrubIn`, `scrubOut`.
-- **ProcedureForm**: new sections (Live times readonly if scrub_in_at present, Closure, Preset fields), procedure-name dropdown driven by selected category + `procedure_names`, dirty tracking + blocker.
-- **Dashboard**: Live-case card + in-progress badge on the list; existing calendar/stats untouched.
-- **Deps**: `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`.
+- **Migration (single call)**:
+  - `ALTER TABLE procedures ADD COLUMN patient_height_cm numeric, ADD COLUMN patient_weight_kg numeric;`
+  - `CREATE TABLE surgical_approaches (id, user_id, name, sort_order, created_at)` + RLS/GRANT.
+  - `CREATE TABLE procedure_reexplorations (id, procedure_id, user_id, started_at, ended_at nullable, duration_seconds int nullable, reason text, notes text, created_at)` + RLS scoped to `auth.uid()` + GRANTs.
+- **procedures.ts**: extend `Procedure`, add CRUD for surgical approaches, add `startReexploration`, `endReexploration`, `getActiveReexploration`, `listReexplorations(procedureId)`.
+- **procedure-form.tsx**:
+  - Seed notes template on new log.
+  - Rework Core layout, drop patient_ref input, add height/weight, add IP/patient name.
+  - Move Preset fields above Notes.
+  - Swap surgical approach input for select with add-new.
+  - Rework Closure to team-combined dropdown with add-new (asks surgeon vs PA).
+- **dashboard.tsx**: add "Re-ex" button + dialog + active re-ex card (mirrors LiveCaseCard styling).
+- **catalog.tsx**: add Surgical approaches management card.
+- **procedures.$id.tsx**: add Re-explorations list section.
 
 ## Out of scope
 
-- Sharing catalogs/presets across users.
-- Editing an already-completed case's scrub times.
-- Advanced preset field types (dates, selects) — starting with text/number/textarea; easy to extend later.
+- Reordering surgical approaches via drag-drop (only add/delete this turn).
+- Editing a saved re-ex entry (delete + re-add if needed).
+- Migrating existing `patient_ref` values into `patient_name`.
