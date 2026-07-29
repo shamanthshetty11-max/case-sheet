@@ -408,3 +408,119 @@ function LiveTimer({ since }: { since: string }) {
   const elapsed = Math.max(0, Math.floor((now - new Date(since).getTime()) / 1000));
   return <span className="font-mono text-sm text-primary">{formatDuration(elapsed)}</span>;
 }
+
+function ReexCard({ items }: { items: Procedure[] }) {
+  const qc = useQueryClient();
+  const { data: active } = useQuery({ queryKey: ["active_reex"], queryFn: getActiveReexploration, refetchInterval: 15000 });
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [endOpen, setEndOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [reason, setReason] = useState("");
+  const [notes, setNotes] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const parent = useMemo(() => items.find((p) => p.id === active?.procedure_id) ?? null, [items, active]);
+  const options = useMemo(() => {
+    const s = search.trim().toLowerCase();
+    const list = items.filter((p) => p.status !== "in_progress").slice(0, 200);
+    return s ? list.filter((p) => [p.name, p.patient_name, p.ip_number, p.indication].some((v) => v?.toLowerCase().includes(s))) : list;
+  }, [items, search]);
+
+  async function pick(id: string) {
+    setBusy(true);
+    try {
+      await startReexploration(id);
+      qc.invalidateQueries({ queryKey: ["active_reex"] });
+      setPickerOpen(false);
+      toast.success("Re-exploration started");
+    } catch (err) { toast.error(err instanceof Error ? err.message : "Failed"); }
+    finally { setBusy(false); }
+  }
+  async function finish() {
+    if (!active) return;
+    setBusy(true);
+    try {
+      await endReexploration(active.id, reason.trim(), notes.trim());
+      qc.invalidateQueries({ queryKey: ["active_reex"] });
+      qc.invalidateQueries({ queryKey: ["procedures"] });
+      setEndOpen(false); setReason(""); setNotes("");
+      toast.success("Re-exploration saved to the original log");
+    } catch (err) { toast.error(err instanceof Error ? err.message : "Failed"); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <>
+      <Card className={active ? "border-amber-500/50 bg-amber-500/5" : undefined}>
+        <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+          <div className="flex items-center gap-2">
+            <Undo2 className={`h-4 w-4 ${active ? "text-amber-600 animate-pulse" : "text-muted-foreground"}`} />
+            <CardTitle className="text-base">Re-exploration</CardTitle>
+          </div>
+          {active ? <LiveTimer since={active.started_at} /> : <div className="text-xs text-muted-foreground">Re-open a previous case</div>}
+        </CardHeader>
+        <CardContent>
+          {active ? (
+            <div className="space-y-2">
+              <div className="text-sm">
+                <div className="font-medium">{parent?.name ?? "Previous case"}</div>
+                <div className="text-xs text-muted-foreground">
+                  {parent && [parent.patient_name && `Pt: ${parent.patient_name}`, parent.ip_number && `IP: ${parent.ip_number}`, parent.performed_at && format(new Date(parent.performed_at), "MMM d, yyyy")].filter(Boolean).join(" · ")}
+                </div>
+              </div>
+              <Button onClick={() => setEndOpen(true)} disabled={busy}><StopCircle className="mr-1.5 h-4 w-4" /> End re-exploration</Button>
+            </div>
+          ) : (
+            <Button variant="secondary" onClick={() => setPickerOpen(true)}><Undo2 className="mr-1.5 h-4 w-4" /> Re-ex</Button>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Pick the case to re-explore</DialogTitle>
+            <DialogDescription>Timer starts as soon as you pick. Details will be saved onto that original log.</DialogDescription>
+          </DialogHeader>
+          <Input placeholder="Search by name, patient, IP…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <div className="max-h-72 space-y-1 overflow-auto">
+            {options.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">No matching cases.</p>}
+            {options.map((p) => (
+              <button key={p.id} type="button" onClick={() => pick(p.id)} disabled={busy}
+                className="flex w-full items-center justify-between gap-2 rounded-md border border-border p-2 text-left text-sm hover:border-primary/40 hover:bg-accent">
+                <div className="min-w-0">
+                  <div className="truncate font-medium">{p.name}</div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {format(new Date(p.performed_at), "MMM d, yyyy")}
+                    {p.patient_name && ` · ${p.patient_name}`}
+                    {p.ip_number && ` · IP ${p.ip_number}`}
+                  </div>
+                </div>
+                {p.category && <Badge variant="secondary" className="shrink-0">{p.category}</Badge>}
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={endOpen} onOpenChange={setEndOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>End re-exploration</DialogTitle>
+            <DialogDescription>Notes get appended to the original case log.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label className="text-xs">Reason</Label>
+            <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Bleeding" />
+            <Label className="text-xs">Notes</Label>
+            <Textarea rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEndOpen(false)}>Cancel</Button>
+            <Button onClick={finish} disabled={busy}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
