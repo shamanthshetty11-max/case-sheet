@@ -416,6 +416,16 @@ export function ProcedureForm({
         <CardHeader><CardTitle className="text-base">Core</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-3">
+            <Field label="Patient name"><Input value={v.patient_name} onChange={(e) => set("patient_name", e.target.value)} /></Field>
+            <Field label="IP number"><Input value={v.ip_number} onChange={(e) => set("ip_number", e.target.value)} /></Field>
+            <Field label="Category">
+              <Select value={v.category} onValueChange={(x) => set("category", x)}>
+                <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectContent>{PROCEDURE_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              </Select>
+            </Field>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Date & time"><Input type="datetime-local" required value={v.performed_at} onChange={(e) => set("performed_at", e.target.value)} /></Field>
             <Field label="Procedure name">
               <ProcedureNameSelect
@@ -426,14 +436,11 @@ export function ProcedureForm({
                 onAddNew={addNewProcedureName}
               />
             </Field>
-            <Field label="Category">
-              <Select value={v.category} onValueChange={(x) => set("category", x)}>
-                <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-                <SelectContent>{PROCEDURE_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-              </Select>
-            </Field>
           </div>
-          <Field label="Patient reference (MRN / initials)"><Input value={v.patient_ref} onChange={(e) => set("patient_ref", e.target.value)} /></Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Height (cm)"><Input type="number" min={0} step="0.1" value={v.patient_height_cm} onChange={(e) => set("patient_height_cm", e.target.value)} /></Field>
+            <Field label="Weight (kg)"><Input type="number" min={0} step="0.1" value={v.patient_weight_kg} onChange={(e) => set("patient_weight_kg", e.target.value)} /></Field>
+          </div>
         </CardContent>
       </Card>
 
@@ -441,7 +448,14 @@ export function ProcedureForm({
         <CardHeader><CardTitle className="text-base">Clinical detail</CardTitle></CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <Field label="Diagnosis"><Input value={v.diagnosis} onChange={(e) => set("diagnosis", e.target.value)} /></Field>
-          <Field label="Surgical approach"><Input value={v.surgical_approach} onChange={(e) => set("surgical_approach", e.target.value)} /></Field>
+          <Field label="Surgical approach">
+            <ApproachSelect
+              value={v.surgical_approach}
+              options={(approachesQ.data ?? []).map((a) => a.name)}
+              onChange={(name) => set("surgical_approach", name)}
+              onAddNew={addNewApproach}
+            />
+          </Field>
           <Field label="Surgeon">
             <SurgeonSelect
               value={v.surgeon}
