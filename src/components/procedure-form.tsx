@@ -542,11 +542,12 @@ export function ProcedureForm({
         <CardHeader><CardTitle className="text-base">Closure</CardTitle></CardHeader>
         <CardContent>
           <Field label="Closed by">
-            <SurgeonSelect
+            <ClosedBySelect
               value={v.closed_by}
-              options={(surgeonsQ.data ?? []).map((s) => s.name)}
+              surgeons={(surgeonsQ.data ?? []).map((s) => s.name)}
+              pas={(pasQ.data ?? []).map((p) => p.name)}
               onChange={(name) => set("closed_by", name)}
-              onAddNew={addNewSurgeon}
+              onAddNew={addNewClosureMember}
             />
           </Field>
         </CardContent>
