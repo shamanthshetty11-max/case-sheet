@@ -158,6 +158,50 @@ export type Database = {
         }
         Relationships: []
       }
+      procedure_reexplorations: {
+        Row: {
+          created_at: string
+          duration_seconds: number | null
+          ended_at: string | null
+          id: string
+          notes: string | null
+          procedure_id: string
+          reason: string | null
+          started_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          notes?: string | null
+          procedure_id: string
+          reason?: string | null
+          started_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          notes?: string | null
+          procedure_id?: string
+          reason?: string | null
+          started_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procedure_reexplorations_procedure_id_fkey"
+            columns: ["procedure_id"]
+            isOneToOne: false
+            referencedRelation: "procedures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       procedure_steps: {
         Row: {
           created_at: string
@@ -215,8 +259,10 @@ export type Database = {
           notes: string | null
           outcome: string | null
           pa_names: string[]
+          patient_height_cm: number | null
           patient_name: string | null
           patient_ref: string | null
+          patient_weight_kg: number | null
           performed_at: string
           preset_id: string | null
           preset_values: Json
@@ -245,8 +291,10 @@ export type Database = {
           notes?: string | null
           outcome?: string | null
           pa_names?: string[]
+          patient_height_cm?: number | null
           patient_name?: string | null
           patient_ref?: string | null
+          patient_weight_kg?: number | null
           performed_at?: string
           preset_id?: string | null
           preset_values?: Json
@@ -275,8 +323,10 @@ export type Database = {
           notes?: string | null
           outcome?: string | null
           pa_names?: string[]
+          patient_height_cm?: number | null
           patient_name?: string | null
           patient_ref?: string | null
+          patient_weight_kg?: number | null
           performed_at?: string
           preset_id?: string | null
           preset_values?: Json
@@ -288,6 +338,30 @@ export type Database = {
           surgeon?: string | null
           total_duration_seconds?: number | null
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      surgical_approaches: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          sort_order?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
           user_id?: string
         }
         Relationships: []

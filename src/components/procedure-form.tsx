@@ -17,6 +17,9 @@ import {
   addProcedureName,
   listPresets,
   listPresetFields,
+  listSurgicalApproaches,
+  addSurgicalApproach,
+  NOTES_TEMPLATE,
   type Procedure,
   type ProcedureStep,
   type Attachment,
@@ -40,7 +43,10 @@ export type ProcedureFormValues = {
   performed_at: string;
   name: string;
   category: string;
-  patient_ref: string;
+  patient_name: string;
+  ip_number: string;
+  patient_height_cm: string;
+  patient_weight_kg: string;
   diagnosis: string;
   surgical_approach: string;
   surgeon: string;
@@ -75,13 +81,16 @@ export function ProcedureForm({
     performed_at: toLocalInput(initial?.performed_at ?? new Date().toISOString()),
     name: initial?.name ?? "",
     category: initial?.category ?? "",
-    patient_ref: initial?.patient_ref ?? "",
+    patient_name: initial?.patient_name ?? "",
+    ip_number: initial?.ip_number ?? "",
+    patient_height_cm: initial?.patient_height_cm != null ? String(initial.patient_height_cm) : "",
+    patient_weight_kg: initial?.patient_weight_kg != null ? String(initial.patient_weight_kg) : "",
     diagnosis: initial?.indication ?? "",
     surgical_approach: initial?.site ?? "",
     surgeon: initial?.surgeon ?? "",
     assistant_surgeon: initial?.assistant_surgeon ?? "",
     complications: initial?.complications ?? "",
-    notes: initial?.notes ?? "",
+    notes: initial?.notes ?? (procedureId ? "" : NOTES_TEMPLATE),
     closed_by: initial?.closed_by ?? "",
   });
   const [paNames, setPaNames] = useState<string[]>(initial?.pa_names ?? []);
@@ -107,6 +116,7 @@ export function ProcedureForm({
   const namesQ = useQuery({ queryKey: ["procedure_names"], queryFn: listProcedureNames });
   const presetsQ = useQuery({ queryKey: ["procedure_presets"], queryFn: listPresets });
   const presetFieldsQ = useQuery({ queryKey: ["procedure_preset_fields"], queryFn: listPresetFields });
+  const approachesQ = useQuery({ queryKey: ["surgical_approaches"], queryFn: listSurgicalApproaches });
 
   const namesInCategory = useMemo(
     () => (namesQ.data ?? []).filter((n) => n.category === v.category),
@@ -183,13 +193,16 @@ export function ProcedureForm({
         };
         apply("name", result.name);
         if (result.category && CATS.includes(result.category)) apply("category", result.category);
-        apply("patient_ref", result.patient_ref);
+        if (result.patient_ref && !prev.patient_name) { next.patient_name = result.patient_ref; applied.push("patient_name"); }
         apply("diagnosis", result.diagnosis);
         apply("surgical_approach", result.surgical_approach);
         apply("surgeon", result.surgeon);
         apply("assistant_surgeon", result.assistant_surgeon);
         apply("complications", result.complications);
-        apply("notes", result.notes);
+        if (result.notes && (!prev.notes.trim() || prev.notes === NOTES_TEMPLATE)) {
+          next.notes = result.notes;
+          applied.push("notes");
+        }
         return next;
       });
       if (result.pa_names?.length) {
@@ -269,6 +282,36 @@ export function ProcedureForm({
     }
   }
 
+  async function addNewApproach(): Promise<string | null> {
+    const name = window.prompt("Add a surgical approach:");
+    if (!name?.trim()) return null;
+    try {
+      const created = await addSurgicalApproach(name.trim());
+      qc.invalidateQueries({ queryKey: ["surgical_approaches"] });
+      return created.name;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save approach");
+      return null;
+    }
+  }
+
+  async function addNewClosureMember(): Promise<{ name: string; kind: "surgeon" | "pa" } | null> {
+    const kindRaw = window.prompt("Add closure member — type 'S' for surgeon or 'P' for physician assistant:", "S");
+    if (!kindRaw) return null;
+    const kind: "surgeon" | "pa" = /^p/i.test(kindRaw.trim()) ? "pa" : "surgeon";
+    const name = window.prompt(kind === "surgeon" ? "Surgeon name (Dr. added automatically):" : "PA name:");
+    if (!name?.trim()) return null;
+    try {
+      const clean = kind === "surgeon" ? name.trim().replace(/^dr\.?\s+/i, "") : name.trim();
+      if (kind === "surgeon") { await addTeamSurgeon(clean); qc.invalidateQueries({ queryKey: ["team_surgeons"] }); }
+      else { await addTeamPA(clean); qc.invalidateQueries({ queryKey: ["team_pas"] }); }
+      return { name: clean, kind };
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save");
+      return null;
+    }
+  }
+
   async function uploadFiles(files: FileList | null, pid: string) {
     if (!files || !files.length) return [] as Attachment[];
     const { data: userData } = await supabase.auth.getUser();
@@ -329,14 +372,17 @@ export function ProcedureForm({
         performed_at: new Date(v.performed_at).toISOString(),
         name: v.name.trim(),
         category: v.category || null,
-        patient_ref: v.patient_ref || null,
+        patient_name: v.patient_name || null,
+        ip_number: v.ip_number || null,
+        patient_height_cm: v.patient_height_cm ? Number(v.patient_height_cm) : null,
+        patient_weight_kg: v.patient_weight_kg ? Number(v.patient_weight_kg) : null,
         indication: v.diagnosis || null,
         site: v.surgical_approach || null,
         surgeon: v.surgeon || null,
         assistant_surgeon: v.assistant_surgeon || null,
         pa_names: paNames.length ? paNames : undefined,
         complications: v.complications || null,
-        notes: v.notes || null,
+        notes: v.notes && v.notes !== NOTES_TEMPLATE ? v.notes : null,
         total_duration_seconds: total || null,
         closed_by: v.closed_by || null,
         preset_id: presetId,
@@ -400,6 +446,16 @@ export function ProcedureForm({
         <CardHeader><CardTitle className="text-base">Core</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-3">
+            <Field label="Patient name"><Input value={v.patient_name} onChange={(e) => set("patient_name", e.target.value)} /></Field>
+            <Field label="IP number"><Input value={v.ip_number} onChange={(e) => set("ip_number", e.target.value)} /></Field>
+            <Field label="Category">
+              <Select value={v.category} onValueChange={(x) => set("category", x)}>
+                <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectContent>{PROCEDURE_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              </Select>
+            </Field>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Date & time"><Input type="datetime-local" required value={v.performed_at} onChange={(e) => set("performed_at", e.target.value)} /></Field>
             <Field label="Procedure name">
               <ProcedureNameSelect
@@ -410,14 +466,11 @@ export function ProcedureForm({
                 onAddNew={addNewProcedureName}
               />
             </Field>
-            <Field label="Category">
-              <Select value={v.category} onValueChange={(x) => set("category", x)}>
-                <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-                <SelectContent>{PROCEDURE_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-              </Select>
-            </Field>
           </div>
-          <Field label="Patient reference (MRN / initials)"><Input value={v.patient_ref} onChange={(e) => set("patient_ref", e.target.value)} /></Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Height (cm)"><Input type="number" min={0} step="0.1" value={v.patient_height_cm} onChange={(e) => set("patient_height_cm", e.target.value)} /></Field>
+            <Field label="Weight (kg)"><Input type="number" min={0} step="0.1" value={v.patient_weight_kg} onChange={(e) => set("patient_weight_kg", e.target.value)} /></Field>
+          </div>
         </CardContent>
       </Card>
 
@@ -425,7 +478,14 @@ export function ProcedureForm({
         <CardHeader><CardTitle className="text-base">Clinical detail</CardTitle></CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <Field label="Diagnosis"><Input value={v.diagnosis} onChange={(e) => set("diagnosis", e.target.value)} /></Field>
-          <Field label="Surgical approach"><Input value={v.surgical_approach} onChange={(e) => set("surgical_approach", e.target.value)} /></Field>
+          <Field label="Surgical approach">
+            <ApproachSelect
+              value={v.surgical_approach}
+              options={(approachesQ.data ?? []).map((a) => a.name)}
+              onChange={(name) => set("surgical_approach", name)}
+              onAddNew={addNewApproach}
+            />
+          </Field>
           <Field label="Surgeon">
             <SurgeonSelect
               value={v.surgeon}
@@ -482,11 +542,12 @@ export function ProcedureForm({
         <CardHeader><CardTitle className="text-base">Closure</CardTitle></CardHeader>
         <CardContent>
           <Field label="Closed by">
-            <SurgeonSelect
+            <ClosedBySelect
               value={v.closed_by}
-              options={(surgeonsQ.data ?? []).map((s) => s.name)}
+              surgeons={(surgeonsQ.data ?? []).map((s) => s.name)}
+              pas={(pasQ.data ?? []).map((p) => p.name)}
               onChange={(name) => set("closed_by", name)}
-              onAddNew={addNewSurgeon}
+              onAddNew={addNewClosureMember}
             />
           </Field>
         </CardContent>
@@ -752,6 +813,75 @@ function ProcedureNameSelect({
         {options.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
         <SelectItem value={NEW_VALUE}>+ Add to catalog…</SelectItem>
         <SelectItem value="__manual__">Type a one-off name…</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
+function ApproachSelect({
+  value, options, onChange, onAddNew,
+}: { value: string; options: string[]; onChange: (v: string) => void; onAddNew: () => Promise<string | null> }) {
+  const inList = value && options.includes(value);
+  const [manual, setManual] = useState(false);
+  if (manual || (value && !inList)) {
+    return (
+      <div className="flex gap-1">
+        <Input placeholder="e.g. Median sternotomy" value={value} onChange={(e) => onChange(e.target.value)} />
+        <Button type="button" variant="ghost" size="icon" onClick={() => { setManual(false); onChange(""); }}><X className="h-4 w-4" /></Button>
+      </div>
+    );
+  }
+  return (
+    <Select value={value || ""} onValueChange={async (val) => {
+      if (val === NEW_VALUE) { const added = await onAddNew(); if (added) onChange(added); return; }
+      if (val === "__manual__") { setManual(true); onChange(""); return; }
+      onChange(val);
+    }}>
+      <SelectTrigger><SelectValue placeholder="Select approach" /></SelectTrigger>
+      <SelectContent>
+        {options.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+        <SelectItem value={NEW_VALUE}>+ Add to catalog…</SelectItem>
+        <SelectItem value="__manual__">Type a one-off approach…</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
+function ClosedBySelect({
+  value, surgeons, pas, onChange, onAddNew,
+}: {
+  value: string;
+  surgeons: string[];
+  pas: string[];
+  onChange: (v: string) => void;
+  onAddNew: () => Promise<{ name: string; kind: "surgeon" | "pa" } | null>;
+}) {
+  // Encode surgeons with prefix so we can strip and apply salutation
+  const options = [
+    ...surgeons.map((s) => ({ label: withDr(s), val: `S::${s}` })),
+    ...pas.map((p) => ({ label: p, val: `P::${p}` })),
+  ];
+  const currentVal = (() => {
+    if (!value) return "";
+    const strippedDr = value.replace(/^dr\.?\s+/i, "");
+    if (surgeons.includes(strippedDr)) return `S::${strippedDr}`;
+    if (pas.includes(value)) return `P::${value}`;
+    return "";
+  })();
+  return (
+    <Select value={currentVal} onValueChange={async (val) => {
+      if (val === NEW_VALUE) {
+        const added = await onAddNew();
+        if (added) onChange(added.kind === "surgeon" ? withDr(added.name) : added.name);
+        return;
+      }
+      if (val.startsWith("S::")) onChange(withDr(val.slice(3)));
+      else if (val.startsWith("P::")) onChange(val.slice(3));
+    }}>
+      <SelectTrigger><SelectValue placeholder={value || "Select who closed the chest"} /></SelectTrigger>
+      <SelectContent>
+        {options.map((o) => <SelectItem key={o.val} value={o.val}>{o.label}</SelectItem>)}
+        <SelectItem value={NEW_VALUE}>+ Add new person…</SelectItem>
       </SelectContent>
     </Select>
   );

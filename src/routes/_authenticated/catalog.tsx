@@ -6,13 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Trash2, Plus, BookMarked, Layers } from "lucide-react";
+import { Trash2, Plus, BookMarked, Layers, Scissors } from "lucide-react";
 import { toast } from "sonner";
 import {
   PROCEDURE_CATEGORIES,
   listProcedureNames, addProcedureName, updateProcedureName, deleteProcedureName,
   listPresets, addPreset, deletePreset,
   listPresetFields, addPresetField, deletePresetField,
+  listSurgicalApproaches, addSurgicalApproach, deleteSurgicalApproach,
 } from "@/lib/procedures";
 
 export const Route = createFileRoute("/_authenticated/catalog")({
@@ -30,8 +31,50 @@ function CatalogPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <NamesCard />
         <PresetsCard />
+        <ApproachesCard />
       </div>
     </div>
+  );
+}
+
+function ApproachesCard() {
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["surgical_approaches"], queryFn: listSurgicalApproaches });
+  const [name, setName] = useState("");
+  async function add() {
+    if (!name.trim()) return;
+    try { await addSurgicalApproach(name.trim()); setName(""); qc.invalidateQueries({ queryKey: ["surgical_approaches"] }); }
+    catch (err) { toast.error(err instanceof Error ? err.message : "Failed"); }
+  }
+  async function rm(id: string) {
+    try { await deleteSurgicalApproach(id); qc.invalidateQueries({ queryKey: ["surgical_approaches"] }); }
+    catch (err) { toast.error(err instanceof Error ? err.message : "Failed"); }
+  }
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-secondary-foreground"><Scissors className="h-4 w-4" /></div>
+          <CardTitle className="text-base">Surgical approaches</CardTitle>
+        </div>
+        <CardDescription>Show up as a dropdown on the New log's Surgical approach field.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex gap-2">
+          <Input placeholder="e.g. Median sternotomy" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} />
+          <Button onClick={add} disabled={!name.trim()}><Plus className="mr-1.5 h-4 w-4" /> Add</Button>
+        </div>
+        <div className="space-y-1.5">
+          {(q.data ?? []).length === 0 && <p className="text-xs text-muted-foreground">No approaches yet.</p>}
+          {(q.data ?? []).map((a) => (
+            <div key={a.id} className="flex items-center gap-2 rounded-md border border-border p-2 text-sm">
+              <span className="flex-1">{a.name}</span>
+              <Button size="icon" variant="ghost" onClick={() => rm(a.id)}><Trash2 className="h-4 w-4" /></Button>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
