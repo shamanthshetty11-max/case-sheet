@@ -17,6 +17,9 @@ import {
   addProcedureName,
   listPresets,
   listPresetFields,
+  listSurgicalApproaches,
+  addSurgicalApproach,
+  NOTES_TEMPLATE,
   type Procedure,
   type ProcedureStep,
   type Attachment,
@@ -40,7 +43,10 @@ export type ProcedureFormValues = {
   performed_at: string;
   name: string;
   category: string;
-  patient_ref: string;
+  patient_name: string;
+  ip_number: string;
+  patient_height_cm: string;
+  patient_weight_kg: string;
   diagnosis: string;
   surgical_approach: string;
   surgeon: string;
@@ -75,13 +81,16 @@ export function ProcedureForm({
     performed_at: toLocalInput(initial?.performed_at ?? new Date().toISOString()),
     name: initial?.name ?? "",
     category: initial?.category ?? "",
-    patient_ref: initial?.patient_ref ?? "",
+    patient_name: initial?.patient_name ?? "",
+    ip_number: initial?.ip_number ?? "",
+    patient_height_cm: initial?.patient_height_cm != null ? String(initial.patient_height_cm) : "",
+    patient_weight_kg: initial?.patient_weight_kg != null ? String(initial.patient_weight_kg) : "",
     diagnosis: initial?.indication ?? "",
     surgical_approach: initial?.site ?? "",
     surgeon: initial?.surgeon ?? "",
     assistant_surgeon: initial?.assistant_surgeon ?? "",
     complications: initial?.complications ?? "",
-    notes: initial?.notes ?? "",
+    notes: initial?.notes ?? (procedureId ? "" : NOTES_TEMPLATE),
     closed_by: initial?.closed_by ?? "",
   });
   const [paNames, setPaNames] = useState<string[]>(initial?.pa_names ?? []);
@@ -107,6 +116,7 @@ export function ProcedureForm({
   const namesQ = useQuery({ queryKey: ["procedure_names"], queryFn: listProcedureNames });
   const presetsQ = useQuery({ queryKey: ["procedure_presets"], queryFn: listPresets });
   const presetFieldsQ = useQuery({ queryKey: ["procedure_preset_fields"], queryFn: listPresetFields });
+  const approachesQ = useQuery({ queryKey: ["surgical_approaches"], queryFn: listSurgicalApproaches });
 
   const namesInCategory = useMemo(
     () => (namesQ.data ?? []).filter((n) => n.category === v.category),
