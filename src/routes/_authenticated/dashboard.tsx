@@ -1,12 +1,14 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { listProcedures, exportCsv, PROCEDURE_CATEGORIES, formatDuration, scrubIn, scrubOut, getInProgressProcedure } from "@/lib/procedures";
+import { listProcedures, exportCsv, PROCEDURE_CATEGORIES, formatDuration, scrubIn, scrubOut, getInProgressProcedure, getActiveReexploration, startReexploration, endReexploration } from "@/lib/procedures";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, Plus, Search, Activity, CalendarDays, TrendingUp, Clock, Timer, PlayCircle, StopCircle } from "lucide-react";
+import { Download, Plus, Search, Activity, CalendarDays, TrendingUp, Clock, Timer, PlayCircle, StopCircle, Undo2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
@@ -68,6 +70,7 @@ function Dashboard() {
       </div>
 
       <LiveCaseCard />
+      <ReexCard items={data ?? []} />
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card><CardHeader className="pb-2"><CardDescription>Total</CardDescription><CardTitle className="text-3xl">{stats.total}</CardTitle></CardHeader></Card>
