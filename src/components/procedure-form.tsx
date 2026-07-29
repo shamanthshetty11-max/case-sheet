@@ -193,13 +193,16 @@ export function ProcedureForm({
         };
         apply("name", result.name);
         if (result.category && CATS.includes(result.category)) apply("category", result.category);
-        apply("patient_ref", result.patient_ref);
+        if (result.patient_ref && !prev.patient_name) { next.patient_name = result.patient_ref; applied.push("patient_name"); }
         apply("diagnosis", result.diagnosis);
         apply("surgical_approach", result.surgical_approach);
         apply("surgeon", result.surgeon);
         apply("assistant_surgeon", result.assistant_surgeon);
         apply("complications", result.complications);
-        apply("notes", result.notes);
+        if (result.notes && (!prev.notes.trim() || prev.notes === NOTES_TEMPLATE)) {
+          next.notes = result.notes;
+          applied.push("notes");
+        }
         return next;
       });
       if (result.pa_names?.length) {
@@ -339,14 +342,17 @@ export function ProcedureForm({
         performed_at: new Date(v.performed_at).toISOString(),
         name: v.name.trim(),
         category: v.category || null,
-        patient_ref: v.patient_ref || null,
+        patient_name: v.patient_name || null,
+        ip_number: v.ip_number || null,
+        patient_height_cm: v.patient_height_cm ? Number(v.patient_height_cm) : null,
+        patient_weight_kg: v.patient_weight_kg ? Number(v.patient_weight_kg) : null,
         indication: v.diagnosis || null,
         site: v.surgical_approach || null,
         surgeon: v.surgeon || null,
         assistant_surgeon: v.assistant_surgeon || null,
         pa_names: paNames.length ? paNames : undefined,
         complications: v.complications || null,
-        notes: v.notes || null,
+        notes: v.notes && v.notes !== NOTES_TEMPLATE ? v.notes : null,
         total_duration_seconds: total || null,
         closed_by: v.closed_by || null,
         preset_id: presetId,
