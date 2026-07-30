@@ -1,76 +1,56 @@
-## What's changing
+## Goal
 
-Seven adjustments to New log, dashboard, and catalog: patient identity fields, reordered form sections, height/weight, preset placement, closure team dropdown, notes template, surgical-approach dropdown, and a "Re-ex" flow that appends to an existing case.
+CaseSync becomes installable on your phone (home-screen icon, full screen) and downloadable as a desktop program, and it keeps a **complete copy of all your data on the device**. You can open it, browse everything, and log/edit cases with no internet; changes upload automatically the moment you're back online.
 
-## 1. Patient details replace patient reference
+## 1. Local database on the device
 
-- Add `patient_name` and `ip_number` inputs to New log (already columns on `procedures`); drop the "Patient reference (MRN / initials)" input.
-- Keep `patient_ref` in the type for back-compat with old rows but stop showing/writing it from the form.
+Add an on-device database (IndexedDB via Dexie) mirroring every table the app uses: procedures, steps, re-explorations, procedure names, presets, preset fields, surgeons, PAs, surgical approaches.
 
-## 2. Form section order
+- On sign-in and on every app open with connectivity, pull all rows for the signed-in user into the local copy.
+- After the first sync, screens read from the local copy first, so the app opens instantly and works with no signal.
+- Data is scoped per user id and cleared on sign-out.
 
-Reorder the Core card so the row is: **Patient name · IP number · Category**, then a second row: **Date & time · Procedure name** (procedure name dropdown still filters by the chosen category, which now sits above it).
+## 2. Writes work offline (outbox + sync)
 
-## 3. Height and weight in Core
+Every create/update/delete goes to the local copy immediately and is appended to a pending-changes queue.
 
-- Add `patient_height_cm` (numeric) and `patient_weight_kg` (numeric) columns to `procedures` via migration.
-- Extend `Procedure` type + form values; render two compact number inputs in Core.
+- IDs are generated on the device (UUID) so new logs, steps and catalog entries exist offline right away and keep the same id after upload.
+- A background sync flushes the queue when online: on app start, when the network returns, and periodically while open.
+- Conflicts: last-write-wins per record using an `updated_at` comparison; the device's pending change wins over an older server row. A record that fails repeatedly is surfaced in the sync panel instead of being silently dropped.
+- Header shows a small status chip: **Online / Offline / Syncing / N pending**, with a manual "Sync now" action.
 
-## 4. Preset fields above Notes
+## 3. Offline behaviour of specific features
 
-Move the dynamic "Preset fields" section so it renders directly above the Notes section (currently sits lower). No data change.
+- **Scrub-in / scrub-out / Re-ex timers**: fully offline; times recorded locally and synced later.
+- **AI "Scan image"**: needs internet (it calls a hosted model). Offline it shows a clear "needs connection" message; the photo can still be attached and scanned later.
+- **File attachments**: files picked offline are stored in the local database and uploaded to cloud storage when connectivity returns. Previously downloaded attachments are cached for offline viewing.
+- **CSV export**: works offline from the local copy.
 
-## 5. Closure dropdown with team members
+## 4. Installable phone app (PWA)
 
-- Replace the plain "Closed by" input with a combined dropdown listing team surgeons (shown as "Dr. X") + PAs, plus an "Add new…" option that asks whether the new person is a surgeon or PA and saves them to the matching team list.
+- Web app manifest with CaseSync name, tagline, theme colours matching the dark theme, standalone display, and app icons generated from the CaseSync logo (192/512 + maskable + Apple touch icon).
+- Service worker via `vite-plugin-pwa` (`generateSW`, `autoUpdate`) with a guarded registration wrapper: never registers in the Lovable editor preview, in an iframe, in dev, or with `?sw=off`. Page navigations use network-first; only hashed build assets are cached first.
+- Result: "Add to Home Screen" on iPhone/Android gives an app icon that launches full screen and opens without internet.
+- Note: offline mode only takes effect on the published site, not inside the editor preview.
 
-## 6. Notes prefilled template
+## 5. Desktop app
 
-When creating a *new* log (no `initial`), seed `notes` with:
+Package the same app with Electron:
 
-```
-HbA1c - 
-EF -  %
-LMCA - 
-```
-
-Do not overwrite existing notes on edit. AI scan still fills only if notes are still the untouched template (treat template as empty for the scan overwrite check).
-
-## 7. Surgical approach dropdown
-
-- New table `surgical_approaches(id, user_id, name, sort_order)` with the same RLS + GRANT pattern as `team_surgeons`.
-- CRUD helpers in `procedures.ts` (`listSurgicalApproaches`, `addSurgicalApproach`, `deleteSurgicalApproach`, `reorderSurgicalApproaches`).
-- In New log: swap the free-text "Surgical approach" for a dropdown of saved approaches with an "Add new…" inline option (mirrors surgeon select).
-- In Catalog page: add a small "Surgical approaches" management card (add / delete; reorder can piggyback on existing drag utilities in a later pass — out of scope this turn to keep diff small).
-
-## 8. Dashboard "Re-ex" button (re-exploration on an existing case)
-
-- New button next to Quick scrub-in header: **Re-ex**.
-- Opens a dialog listing recent completed procedures (search by name / patient / date). Picking one:
-  - Adds a `procedure_reexplorations` row (see schema) with `started_at = now()`.
-  - Sets that procedure into an "active re-ex" state visible on the dashboard (similar to Live case card), showing timer + Scrub out.
-  - Scrub-out records `ended_at`, `duration_seconds`, and prompts for `reason` + `notes` (textarea). On save, appends a formatted block to the parent procedure's `notes` (`--- Re-exploration MMM d, HH:mm (duration) ---\nReason: …\nNotes: …`) so the info lives on the original log, per user's "under the previous log itself" requirement. Also stored structurally in the re-ex table for future reporting.
-- Only one active re-ex at a time. Navigating to the parent procedure shows the re-ex entries in a new "Re-explorations" section on the detail page (read-only list with time + duration + reason).
+- `electron/main.cjs` (context isolation on), `base: './'` in the Vite config, packaged with `@electron/packager`.
+- Builds produced for Windows (`.zip`), macOS (`.zip`) and Linux (`.tar.gz`), downloadable from the documents output.
+- The desktop build uses the same local database and sync engine, so it also works fully offline.
 
 ## Technical details
 
-- **Migration (single call)**:
-  - `ALTER TABLE procedures ADD COLUMN patient_height_cm numeric, ADD COLUMN patient_weight_kg numeric;`
-  - `CREATE TABLE surgical_approaches (id, user_id, name, sort_order, created_at)` + RLS/GRANT.
-  - `CREATE TABLE procedure_reexplorations (id, procedure_id, user_id, started_at, ended_at nullable, duration_seconds int nullable, reason text, notes text, created_at)` + RLS scoped to `auth.uid()` + GRANTs.
-- **procedures.ts**: extend `Procedure`, add CRUD for surgical approaches, add `startReexploration`, `endReexploration`, `getActiveReexploration`, `listReexplorations(procedureId)`.
-- **procedure-form.tsx**:
-  - Seed notes template on new log.
-  - Rework Core layout, drop patient_ref input, add height/weight, add IP/patient name.
-  - Move Preset fields above Notes.
-  - Swap surgical approach input for select with add-new.
-  - Rework Closure to team-combined dropdown with add-new (asks surgeon vs PA).
-- **dashboard.tsx**: add "Re-ex" button + dialog + active re-ex card (mirrors LiveCaseCard styling).
-- **catalog.tsx**: add Surgical approaches management card.
-- **procedures.$id.tsx**: add Re-explorations list section.
+- New `src/lib/local-db.ts` (Dexie schema + per-user scoping), `src/lib/sync.ts` (pull, outbox flush, network listeners, status store), `src/hooks/use-sync-status.ts`.
+- `src/lib/procedures.ts` is rewritten to read/write through the local layer instead of calling Supabase directly, keeping the same exported function signatures so the existing screens and forms are untouched apart from the status chip.
+- Migration adds an `updated_at` column (with trigger) to the tables that lack one, so conflict resolution and incremental pull work: `procedure_steps`, `procedure_names`, `procedure_preset_fields`, `surgical_approaches`, `team_surgeons`, `team_pas`, `procedure_reexplorations`, `procedure_attachments`. Also a `deleted_at` soft-delete column on the same tables plus `procedures`, so deletions propagate between devices instead of rows reappearing on the next pull.
+- Auth: session tokens are already persisted locally, so the app stays signed in offline; the protected-route gate is adjusted to accept a cached session when the network is unreachable rather than bouncing to the sign-in page.
+- `vite-plugin-pwa` added; `public/manifest.webmanifest` + icons; registration only from the guarded wrapper.
 
 ## Out of scope
 
-- Reordering surgical approaches via drag-drop (only add/delete this turn).
-- Editing a saved re-ex entry (delete + re-add if needed).
-- Migrating existing `patient_ref` values into `patient_name`.
+- App Store / Play Store native builds (this is web installability + desktop packaging).
+- Multi-device real-time collaboration (sync is periodic, not live).
+- Offline AI scanning.

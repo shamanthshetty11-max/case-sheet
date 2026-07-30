@@ -4,13 +4,24 @@ import { Button } from "@/components/ui/button";
 import { Activity, Plus, LayoutDashboard, LogOut, Users, BookMarked } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { SyncStatus } from "@/components/sync-status";
+import { clearLocalData } from "@/lib/local-db";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
+    // Offline: getUser() needs the network, so fall back to the stored session
+    // and let the app keep working from the on-device copy.
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session?.user) throw redirect({ to: "/auth" });
+      return { user: data.session.user };
+    }
     const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) throw redirect({ to: "/auth" });
-    return { user: data.user };
+    if (!error && data.user) return { user: data.user };
+    const { data: sess } = await supabase.auth.getSession();
+    if (sess.session?.user) return { user: sess.session.user };
+    throw redirect({ to: "/auth" });
   },
   component: AuthedLayout,
 });
@@ -23,6 +34,7 @@ function AuthedLayout() {
   async function signOut() {
     await qc.cancelQueries();
     qc.clear();
+    await clearLocalData();
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
   }
@@ -62,6 +74,7 @@ function AuthedLayout() {
               </Button>
             </Link>
             <ThemeToggle />
+            <SyncStatus />
             <Button variant="ghost" size="sm" onClick={signOut} aria-label="Sign out">
               <LogOut className="h-4 w-4" />
             </Button>

@@ -1,9 +1,8 @@
 import { createFileRoute, useNavigate, useParams, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getProcedure } from "@/lib/procedures";
+import { getProcedure, deleteProcedure } from "@/lib/procedures";
 import { ProcedureForm } from "@/components/procedure-form";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeft, Trash2 } from "lucide-react";
 
@@ -20,8 +19,12 @@ function ProcedureDetail() {
 
   async function handleDelete() {
     if (!confirm("Delete this procedure? This cannot be undone.")) return;
-    const { error } = await supabase.from("procedures").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    try {
+      await deleteProcedure(id);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Delete failed");
+      return;
+    }
     toast.success("Deleted");
     qc.invalidateQueries({ queryKey: ["procedures"] });
     navigate({ to: "/dashboard" });

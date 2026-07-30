@@ -17,32 +17,38 @@ export type Database = {
       procedure_attachments: {
         Row: {
           created_at: string
+          deleted_at: string | null
           filename: string
           id: string
           mime_type: string | null
           procedure_id: string
           size_bytes: number | null
           storage_path: string
+          updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           filename: string
           id?: string
           mime_type?: string | null
           procedure_id: string
           size_bytes?: number | null
           storage_path: string
+          updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           filename?: string
           id?: string
           mime_type?: string | null
           procedure_id?: string
           size_bytes?: number | null
           storage_path?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
@@ -59,28 +65,34 @@ export type Database = {
         Row: {
           category: string
           created_at: string
+          deleted_at: string | null
           id: string
           name: string
           preset_id: string | null
           sort_order: number
+          updated_at: string
           user_id: string
         }
         Insert: {
           category: string
           created_at?: string
+          deleted_at?: string | null
           id?: string
           name: string
           preset_id?: string | null
           sort_order?: number
+          updated_at?: string
           user_id: string
         }
         Update: {
           category?: string
           created_at?: string
+          deleted_at?: string | null
           id?: string
           name?: string
           preset_id?: string | null
           sort_order?: number
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
@@ -96,29 +108,35 @@ export type Database = {
       procedure_preset_fields: {
         Row: {
           created_at: string
+          deleted_at: string | null
           field_type: string
           id: string
           label: string
           preset_id: string
           sort_order: number
+          updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           field_type?: string
           id?: string
           label: string
           preset_id: string
           sort_order?: number
+          updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           field_type?: string
           id?: string
           label?: string
           preset_id?: string
           sort_order?: number
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
@@ -135,6 +153,7 @@ export type Database = {
         Row: {
           created_at: string
           defaults: Json
+          deleted_at: string | null
           id: string
           name: string
           updated_at: string
@@ -143,6 +162,7 @@ export type Database = {
         Insert: {
           created_at?: string
           defaults?: Json
+          deleted_at?: string | null
           id?: string
           name: string
           updated_at?: string
@@ -151,6 +171,7 @@ export type Database = {
         Update: {
           created_at?: string
           defaults?: Json
+          deleted_at?: string | null
           id?: string
           name?: string
           updated_at?: string
@@ -161,6 +182,7 @@ export type Database = {
       procedure_reexplorations: {
         Row: {
           created_at: string
+          deleted_at: string | null
           duration_seconds: number | null
           ended_at: string | null
           id: string
@@ -168,10 +190,12 @@ export type Database = {
           procedure_id: string
           reason: string | null
           started_at: string
+          updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           duration_seconds?: number | null
           ended_at?: string | null
           id?: string
@@ -179,10 +203,12 @@ export type Database = {
           procedure_id: string
           reason?: string | null
           started_at?: string
+          updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           duration_seconds?: number | null
           ended_at?: string | null
           id?: string
@@ -190,6 +216,7 @@ export type Database = {
           procedure_id?: string
           reason?: string | null
           started_at?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
@@ -205,32 +232,38 @@ export type Database = {
       procedure_steps: {
         Row: {
           created_at: string
+          deleted_at: string | null
           duration_seconds: number
           id: string
           label: string
           notes: string | null
           order_idx: number
           procedure_id: string
+          updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           duration_seconds?: number
           id?: string
           label: string
           notes?: string | null
           order_idx?: number
           procedure_id: string
+          updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           duration_seconds?: number
           id?: string
           label?: string
           notes?: string | null
           order_idx?: number
           procedure_id?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
@@ -250,6 +283,7 @@ export type Database = {
           closed_by: string | null
           complications: string | null
           created_at: string
+          deleted_at: string | null
           difficulty: number | null
           id: string
           indication: string | null
@@ -282,6 +316,7 @@ export type Database = {
           closed_by?: string | null
           complications?: string | null
           created_at?: string
+          deleted_at?: string | null
           difficulty?: number | null
           id?: string
           indication?: string | null
@@ -314,6 +349,7 @@ export type Database = {
           closed_by?: string | null
           complications?: string | null
           created_at?: string
+          deleted_at?: string | null
           difficulty?: number | null
           id?: string
           indication?: string | null
@@ -345,23 +381,29 @@ export type Database = {
       surgical_approaches: {
         Row: {
           created_at: string
+          deleted_at: string | null
           id: string
           name: string
           sort_order: number
+          updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           id?: string
           name: string
           sort_order?: number
+          updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           id?: string
           name?: string
           sort_order?: number
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -369,23 +411,29 @@ export type Database = {
       team_pas: {
         Row: {
           created_at: string
+          deleted_at: string | null
           id: string
           name: string
           sort_order: number
+          updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           id?: string
           name: string
           sort_order?: number
+          updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           id?: string
           name?: string
           sort_order?: number
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -393,23 +441,29 @@ export type Database = {
       team_surgeons: {
         Row: {
           created_at: string
+          deleted_at: string | null
           id: string
           name: string
           sort_order: number
+          updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           id?: string
           name: string
           sort_order?: number
+          updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           id?: string
           name?: string
           sort_order?: number
+          updated_at?: string
           user_id?: string
         }
         Relationships: []

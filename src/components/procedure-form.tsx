@@ -20,12 +20,15 @@ import {
   listSurgicalApproaches,
   addSurgicalApproach,
   NOTES_TEMPLATE,
+  saveProcedure,
+  addAttachment,
+  getAttachmentUrl,
+  deleteAttachment,
   type Procedure,
   type ProcedureStep,
   type Attachment,
 } from "@/lib/procedures";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Plus, Trash2, Paperclip, X, Download, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
@@ -314,19 +317,9 @@ export function ProcedureForm({
 
   async function uploadFiles(files: FileList | null, pid: string) {
     if (!files || !files.length) return [] as Attachment[];
-    const { data: userData } = await supabase.auth.getUser();
-    const uid = userData.user?.id;
-    if (!uid) throw new Error("Not signed in");
     const results: Attachment[] = [];
     for (const file of Array.from(files)) {
-      const path = `${uid}/${pid}/${Date.now()}-${file.name}`;
-      const { error: upErr } = await supabase.storage.from("procedure-files").upload(path, file);
-      if (upErr) throw upErr;
-      const { data: row, error: rowErr } = await supabase.from("procedure_attachments").insert({
-        procedure_id: pid, user_id: uid, storage_path: path, filename: file.name, mime_type: file.type, size_bytes: file.size,
-      }).select().single();
-      if (rowErr) throw rowErr;
-      results.push(row as Attachment);
+      results.push(await addAttachment(pid, file));
     }
     return results;
   }
@@ -336,7 +329,7 @@ export function ProcedureForm({
     try {
       const added = await uploadFiles(e.target.files, procedureId);
       setAttachments((a) => [...a, ...added]);
-      toast.success(`Uploaded ${added.length} file${added.length === 1 ? "" : "s"}`);
+      toast.success(`Attached ${added.length} file${added.length === 1 ? "" : "s"}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -345,14 +338,13 @@ export function ProcedureForm({
   }
 
   async function downloadAttachment(a: Attachment) {
-    const { data, error } = await supabase.storage.from("procedure-files").createSignedUrl(a.storage_path, 60);
-    if (error) { toast.error(error.message); return; }
-    window.open(data.signedUrl, "_blank");
+    const url = await getAttachmentUrl(a);
+    if (!url) { toast.error("File not available offline yet"); return; }
+    window.open(url, "_blank");
   }
 
   async function removeAttachment(a: Attachment) {
-    await supabase.storage.from("procedure-files").remove([a.storage_path]);
-    await supabase.from("procedure_attachments").delete().eq("id", a.id);
+    await deleteAttachment(a);
     setAttachments((prev) => prev.filter((x) => x.id !== a.id));
   }
 
@@ -360,15 +352,10 @@ export function ProcedureForm({
     e.preventDefault();
     setSaving(true);
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const uid = userData.user?.id;
-      if (!uid) throw new Error("Not signed in");
-
       const finalizedSteps = steps.map((s) => ({ ...s, duration_seconds: Math.max(0, s.duration_seconds | 0) }));
       const total = finalizedSteps.reduce((n, s) => n + s.duration_seconds, 0);
 
       const payload = {
-        user_id: uid,
         performed_at: new Date(v.performed_at).toISOString(),
         name: v.name.trim(),
         category: v.category || null,
@@ -380,7 +367,7 @@ export function ProcedureForm({
         site: v.surgical_approach || null,
         surgeon: v.surgeon || null,
         assistant_surgeon: v.assistant_surgeon || null,
-        pa_names: paNames.length ? paNames : undefined,
+        pa_names: paNames,
         complications: v.complications || null,
         notes: v.notes && v.notes !== NOTES_TEMPLATE ? v.notes : null,
         total_duration_seconds: total || null,
@@ -390,29 +377,15 @@ export function ProcedureForm({
         status: initial?.status === "in_progress" ? "completed" : (initial?.status ?? "completed"),
       };
 
-      let pid = procedureId;
-      if (pid) {
-        const { error } = await supabase.from("procedures").update(payload).eq("id", pid);
-        if (error) throw error;
-        await supabase.from("procedure_steps").delete().eq("procedure_id", pid);
-      } else {
-        const { data, error } = await supabase.from("procedures").insert(payload).select().single();
-        if (error) throw error;
-        pid = data.id;
-      }
-
-      if (finalizedSteps.length && pid) {
-        const rows = finalizedSteps.map((s, i) => ({
-          procedure_id: pid, user_id: uid, label: s.label,
-          duration_seconds: s.duration_seconds, order_idx: i,
-        }));
-        const { error } = await supabase.from("procedure_steps").insert(rows);
-        if (error) throw error;
-      }
+      const pid = await saveProcedure(
+        procedureId,
+        payload,
+        finalizedSteps.map((s) => ({ label: s.label, duration_seconds: s.duration_seconds })),
+      );
 
       setDirty(false);
       toast.success(procedureId ? "Updated" : "Procedure saved");
-      onSaved(pid!);
+      onSaved(pid);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");
     } finally {
