@@ -16,6 +16,8 @@ export type SyncState = {
   syncing: boolean;
   pending: number;
   lastSyncedAt: string | null;
+  /** Bumped whenever a sync actually changed local rows. */
+  dataVersion: number;
   error: string | null;
 };
 
@@ -24,6 +26,7 @@ let state: SyncState = {
   syncing: false,
   pending: 0,
   lastSyncedAt: null,
+  dataVersion: 0,
   error: null,
 };
 
@@ -163,17 +166,18 @@ async function pushOutbox(): Promise<void> {
 
 // ---------- pull ----------
 
-async function pullTable(table: SyncTable, since: string | null): Promise<void> {
+async function pullTable(table: SyncTable, since: string | null): Promise<boolean> {
   let query = supabase.from(table).select("*");
   if (since) query = query.gt("updated_at", since);
   const { data, error } = await query;
   if (error) throw error;
   const rows = (data ?? []) as Row[];
-  if (!rows.length) return;
+  if (!rows.length) return false;
   const toDelete = rows.filter((r) => r.deleted_at).map((r) => r.id);
   const toPut = rows.filter((r) => !r.deleted_at);
   if (toDelete.length) await db().table(table).bulkDelete(toDelete);
   if (toPut.length) await db().table(table).bulkPut(toPut);
+  return true;
 }
 
 let running: Promise<void> | null = null;
@@ -189,11 +193,16 @@ export async function syncNow(): Promise<void> {
       await pushOutbox();
       const since = (await getMeta<string>("lastPull")) ?? null;
       const startedAt = nowIso();
+      let changed = false;
       for (const table of SYNC_TABLES) {
-        await pullTable(table, since);
+        if (await pullTable(table, since)) changed = true;
       }
       await setMeta("lastPull", startedAt);
-      set({ lastSyncedAt: startedAt, error: null });
+      set({
+        lastSyncedAt: startedAt,
+        error: null,
+        dataVersion: changed ? state.dataVersion + 1 : state.dataVersion,
+      });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err) });
     } finally {
