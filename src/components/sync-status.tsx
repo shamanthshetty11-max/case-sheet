@@ -8,6 +8,7 @@ const serverState = {
   syncing: false,
   pending: 0,
   lastSyncedAt: null as string | null,
+  dataVersion: 0,
   error: null as string | null,
 };
 
@@ -21,8 +22,8 @@ export function SyncStatus() {
 
   // Freshly pulled cloud rows must reach the screens that already rendered.
   useEffect(() => {
-    if (state.lastSyncedAt) qc.invalidateQueries();
-  }, [state.lastSyncedAt, qc]);
+    if (state.dataVersion > 0) qc.invalidateQueries();
+  }, [state.dataVersion, qc]);
 
   const label = !state.online
     ? state.pending > 0
