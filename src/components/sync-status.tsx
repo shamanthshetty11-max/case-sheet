@@ -1,4 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Cloud, CloudOff, RefreshCw, Check } from "lucide-react";
 import { getSyncState, startSync, subscribeSync, syncNow } from "@/lib/sync";
 
@@ -11,11 +12,17 @@ const serverState = {
 };
 
 export function SyncStatus() {
+  const qc = useQueryClient();
   useEffect(() => {
     startSync();
   }, []);
 
   const state = useSyncExternalStore(subscribeSync, getSyncState, () => serverState);
+
+  // Freshly pulled cloud rows must reach the screens that already rendered.
+  useEffect(() => {
+    if (state.lastSyncedAt) qc.invalidateQueries();
+  }, [state.lastSyncedAt, qc]);
 
   const label = !state.online
     ? state.pending > 0
