@@ -14,6 +14,8 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ThemeProvider } from "@/lib/theme";
+import { resetAndPull } from "@/lib/sync";
+import { registerServiceWorker } from "@/lib/pwa";
 
 function NotFoundComponent() {
   return (
@@ -90,6 +92,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:description", content: "A private procedure logbook built for medical professionals. Log. Learn. Grow." },
       { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/81564417-1bd1-4b91-b4e2-cdd14b00f4ae/id-preview-a6929b0f--ab87d512-910f-48b7-8b54-88c15ed219ab.lovable.app-1785055864993.png" },
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/81564417-1bd1-4b91-b4e2-cdd14b00f4ae/id-preview-a6929b0f--ab87d512-910f-48b7-8b54-88c15ed219ab.lovable.app-1785055864993.png" },
+      { name: "theme-color", content: "#0b1220" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-title", content: "CaseSync" },
     ],
     links: [
       {
@@ -97,6 +102,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: appCss,
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
     ],
   }),
   shellComponent: RootShell,
@@ -123,10 +130,16 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
   useEffect(() => {
+    registerServiceWorker();
+  }, []);
+  useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       router.invalidate();
-      if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
+      if (event !== "SIGNED_OUT") {
+        queryClient.invalidateQueries();
+        void resetAndPull().then(() => queryClient.invalidateQueries());
+      }
     });
     return () => sub.subscription.unsubscribe();
   }, [router, queryClient]);
