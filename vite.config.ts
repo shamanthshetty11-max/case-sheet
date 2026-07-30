@@ -13,6 +13,7 @@ export default defineConfig({
       registerType: "autoUpdate",
       injectRegister: null,
       filename: "sw.js",
+      outDir: "dist/client",
       strategies: "generateSW",
       manifest: false,
       devOptions: { enabled: false },
