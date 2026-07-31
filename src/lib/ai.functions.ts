@@ -62,6 +62,7 @@ export const extractProcedureFromImage = createServerFn({ method: "POST" })
         model,
         output: Output.object({ schema: ExtractSchema }),
         instructions: system,
+        allowSystemInMessages: true,
         messages: [
           {
             role: "user",
