@@ -241,13 +241,7 @@ export function ProcedureForm({
       }
       if (applied.length) {
         setDirty(true);
-        toast.success(`Filled from image: ${applied.map(labelFor).join(", ")}`, {
-          action: {
-            label: "Undo",
-            onClick: () => { setV(prevValues); setPaNames(prevPas); },
-          },
-          duration: 8000,
-        });
+        console.log("SCANOK", applied.join(","));
       } else {
         toast.message("Nothing recognizable in the image");
       }
