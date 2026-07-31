@@ -68,7 +68,11 @@ export const extractProcedureFromImage = createServerFn({ method: "POST" })
             role: "user",
             content: [
               { type: "text", text: "Extract the procedure details from this image." },
-              { type: "image", image: data.imageDataUrl },
+              {
+                type: "file",
+                mediaType: data.imageDataUrl.slice(5, data.imageDataUrl.indexOf(";")) || "image/jpeg",
+                data: data.imageDataUrl,
+              },
             ],
           },
         ],
