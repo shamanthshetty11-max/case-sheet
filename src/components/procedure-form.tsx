@@ -228,9 +228,12 @@ export function ProcedureForm({
           next.notes = result.notes;
           applied.push("notes");
         }
-
         return next;
       });
+      if (result.category && CATS.includes(result.category)) {
+        applied.push("category");
+        setTimeout(() => setV((prev) => (prev.category ? prev : { ...prev, category: result.category as string })), 0);
+      }
       if (result.pa_names?.length) {
         setPaNames((prev) => {
           const set = new Set(prev);
@@ -241,7 +244,13 @@ export function ProcedureForm({
       }
       if (applied.length) {
         setDirty(true);
-        console.log("SCANOK", applied.join(","));
+        toast.success(`Filled from image: ${applied.map(labelFor).join(", ")}`, {
+          action: {
+            label: "Undo",
+            onClick: () => { setV(prevValues); setPaNames(prevPas); },
+          },
+          duration: 8000,
+        });
       } else {
         toast.message("Nothing recognizable in the image");
       }
