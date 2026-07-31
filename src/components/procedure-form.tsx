@@ -68,6 +68,27 @@ function toLocalInput(iso: string): string {
 
 const NEW_VALUE = "__new__";
 
+const FIELD_LABELS: Record<string, string> = {
+  name: "procedure",
+  category: "category",
+  patient_name: "patient",
+  ip_number: "IP number",
+  patient_height_cm: "height",
+  patient_weight_kg: "weight",
+  diagnosis: "diagnosis",
+  surgical_approach: "approach",
+  surgeon: "surgeon",
+  assistant_surgeon: "assistant",
+  closed_by: "closed by",
+  complications: "complications",
+  notes: "notes",
+  pa_names: "PAs",
+};
+
+function labelFor(k: string): string {
+  return FIELD_LABELS[k] ?? k;
+}
+
 export function ProcedureForm({
   initial,
   initialSteps = [],
