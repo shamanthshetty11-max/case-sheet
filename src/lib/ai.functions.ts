@@ -61,8 +61,8 @@ export const extractProcedureFromImage = createServerFn({ method: "POST" })
       const { output } = await generateText({
         model,
         output: Output.object({ schema: ExtractSchema }),
+        system,
         messages: [
-          { role: "system", content: system },
           {
             role: "user",
             content: [
