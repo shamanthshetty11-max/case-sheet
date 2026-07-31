@@ -5,12 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  listProcedures,
-  listReexplorations,
-  type Procedure,
-  type Reexploration,
-} from "@/lib/procedures";
+import { listProcedures, type Procedure, type Reexploration } from "@/lib/procedures";
 import { localList } from "@/lib/sync";
 import { Activity, Clock, CalendarDays, Flame, Download, TrendingUp } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
