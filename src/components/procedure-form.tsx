@@ -214,21 +214,6 @@ export function ProcedureForm({
           applied.push(k);
         };
         apply("name", result.name);
-        if (result.category && CATS.includes(result.category)) apply("category", result.category);
-        if (result.patient_ref && !prev.patient_name) { next.patient_name = result.patient_ref; applied.push("patient_name"); }
-        apply("ip_number", result.ip_number);
-        apply("patient_height_cm", result.patient_height_cm != null ? String(result.patient_height_cm) : null);
-        apply("patient_weight_kg", result.patient_weight_kg != null ? String(result.patient_weight_kg) : null);
-        apply("diagnosis", result.diagnosis);
-        apply("surgical_approach", result.surgical_approach);
-        apply("surgeon", result.surgeon);
-        apply("assistant_surgeon", result.assistant_surgeon);
-        apply("closed_by", result.closed_by);
-        apply("complications", result.complications);
-        if (result.notes && (!prev.notes.trim() || prev.notes === NOTES_TEMPLATE)) {
-          next.notes = result.notes;
-          applied.push("notes");
-        }
         return next;
       });
       if (result.pa_names?.length) {
