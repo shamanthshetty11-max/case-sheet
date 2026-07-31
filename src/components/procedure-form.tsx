@@ -33,6 +33,7 @@ import { Plus, Trash2, Paperclip, X, Download, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { extractProcedureFromImage } from "@/lib/ai.functions";
+import { compressImageToDataUrl } from "@/lib/image";
 import { PROCEDURE_CATEGORIES as CATS } from "@/lib/procedures";
 import { useBlocker } from "@tanstack/react-router";
 import {
@@ -66,6 +67,27 @@ function toLocalInput(iso: string): string {
 }
 
 const NEW_VALUE = "__new__";
+
+const FIELD_LABELS: Record<string, string> = {
+  name: "procedure",
+  category: "category",
+  patient_name: "patient",
+  ip_number: "IP number",
+  patient_height_cm: "height",
+  patient_weight_kg: "weight",
+  diagnosis: "diagnosis",
+  surgical_approach: "approach",
+  surgeon: "surgeon",
+  assistant_surgeon: "assistant",
+  closed_by: "closed by",
+  complications: "complications",
+  notes: "notes",
+  pa_names: "PAs",
+};
+
+function labelFor(k: string): string {
+  return FIELD_LABELS[k] ?? k;
+}
 
 export function ProcedureForm({
   initial,
@@ -168,22 +190,19 @@ export function ProcedureForm({
     setDirty(true);
   }
 
-  async function readAsDataUrl(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(r.result as string);
-      r.onerror = () => reject(r.error);
-      r.readAsDataURL(file);
-    });
-  }
-
   async function handleScan(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      toast.error("Scanning needs an internet connection");
+      return;
+    }
     setScanning(true);
+    const prevValues = v;
+    const prevPas = paNames;
     try {
-      const imageDataUrl = await readAsDataUrl(file);
+      const imageDataUrl = await compressImageToDataUrl(file);
       const result = await extract({ data: { imageDataUrl } });
       const applied: string[] = [];
       setV((prev) => {
@@ -195,12 +214,15 @@ export function ProcedureForm({
           applied.push(k);
         };
         apply("name", result.name);
-        if (result.category && CATS.includes(result.category)) apply("category", result.category);
         if (result.patient_ref && !prev.patient_name) { next.patient_name = result.patient_ref; applied.push("patient_name"); }
+        apply("ip_number", result.ip_number);
+        apply("patient_height_cm", result.patient_height_cm != null ? String(result.patient_height_cm) : null);
+        apply("patient_weight_kg", result.patient_weight_kg != null ? String(result.patient_weight_kg) : null);
         apply("diagnosis", result.diagnosis);
         apply("surgical_approach", result.surgical_approach);
         apply("surgeon", result.surgeon);
         apply("assistant_surgeon", result.assistant_surgeon);
+        apply("closed_by", result.closed_by);
         apply("complications", result.complications);
         if (result.notes && (!prev.notes.trim() || prev.notes === NOTES_TEMPLATE)) {
           next.notes = result.notes;
@@ -208,6 +230,10 @@ export function ProcedureForm({
         }
         return next;
       });
+      if (result.category && CATS.includes(result.category)) {
+        applied.push("category");
+        setTimeout(() => setV((prev) => (prev.category ? prev : { ...prev, category: result.category as string })), 0);
+      }
       if (result.pa_names?.length) {
         setPaNames((prev) => {
           const set = new Set(prev);
@@ -216,9 +242,22 @@ export function ProcedureForm({
           return Array.from(set);
         });
       }
-      toast.success(applied.length ? `Filled ${applied.length} field${applied.length === 1 ? "" : "s"} from image` : "Nothing recognizable in the image");
+      if (applied.length) {
+        setDirty(true);
+        toast.success(`Filled from image: ${applied.map(labelFor).join(", ")}`, {
+          action: {
+            label: "Undo",
+            onClick: () => { setV(prevValues); setPaNames(prevPas); },
+          },
+          duration: 8000,
+        });
+      } else {
+        toast.message("Nothing recognizable in the image");
+      }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Scan failed");
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[scan] failed", err);
+      toast.error(`Scan failed: ${msg || "unknown error"}`);
     } finally {
       setScanning(false);
     }

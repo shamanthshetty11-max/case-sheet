@@ -1,56 +1,50 @@
-## Goal
+## 1. Fix the AI snapshot auto-fill
 
-CaseSync becomes installable on your phone (home-screen icon, full screen) and downloadable as a desktop program, and it keeps a **complete copy of all your data on the device**. You can open it, browse everything, and log/edit cases with no internet; changes upload automatically the moment you're back online.
+Findings from checking the AI request logs: **zero AI requests have ever reached the AI service** from this app. So the model isn't the problem — the request is dying before it gets there. The most likely cause is the image itself: the form reads the photo with `FileReader` and sends the *full-size* base64 data URL. A modern phone photo is 4–8 MB, which becomes ~6–11 MB of base64 and exceeds the server request-body limit, so the call fails before any model call happens.
 
-## 1. Local database on the device
+Fixes:
+- Downscale and compress the photo in the browser before sending: draw to a canvas, cap the long edge at ~1600px, export JPEG at ~0.75 quality (typically 200–500 KB). Also correct orientation and reject non-image files early.
+- Surface the real error instead of a generic "Scan failed" toast — show the server's status/message so future failures are diagnosable.
+- Add a visible progress state ("Compressing… → Reading image…") and block scanning while offline with a clear "Scanning needs internet" message (the rest of the app is offline-first).
+- Verify the model id used for extraction against the current supported model list and switch to a current vision-capable model if needed.
+- Then run one real end-to-end scan and confirm the request appears in the AI logs before calling it done.
 
-Add an on-device database (IndexedDB via Dexie) mirroring every table the app uses: procedures, steps, re-explorations, procedure names, presets, preset fields, surgeons, PAs, surgical approaches.
+Additional scan improvements:
+- Let the scan also fill patient IP number, height/weight, and the closure/"closed by" name when visible.
+- Show a small review step: list which fields the AI filled, with an Undo, so an incorrect read is easy to revert.
+- Allow scanning multiple photos into the same log (front/back of a sheet).
 
-- On sign-in and on every app open with connectivity, pull all rows for the signed-in user into the local copy.
-- After the first sync, screens read from the local copy first, so the app opens instantly and works with no signal.
-- Data is scoped per user id and cleared on sign-out.
+## 2. Profile & Stats page
 
-## 2. Writes work offline (outbox + sync)
+New `Profile` route in the top nav with the signed-in account and a full stats view, computed from local (offline-capable) data:
 
-Every create/update/delete goes to the local copy immediately and is appended to a pending-changes queue.
+Headline numbers
+- Total cases logged
+- Total hours in case (sum of case durations, shown as `Xh Ym`)
+- Average case duration
+- Average cases per day / per week / per month (active-period based)
+- Longest case, shortest case, busiest single day
 
-- IDs are generated on the device (UUID) so new logs, steps and catalog entries exist offline right away and keep the same id after upload.
-- A background sync flushes the queue when online: on app start, when the network returns, and periodically while open.
-- Conflicts: last-write-wins per record using an `updated_at` comparison; the device's pending change wins over an older server row. A record that fails repeatedly is surfaced in the sync panel instead of being silently dropped.
-- Header shows a small status chip: **Online / Offline / Syncing / N pending**, with a manual "Sync now" action.
+Breakdowns
+- Cases and hours by category (Cardiac surgery first), as a ranked bar list
+- Top procedures by count
+- Top surgeons and PAs worked with, by case count and hours
+- Monthly trend chart (cases + hours per month, last 12 months)
+- Re-exploration rate: how many cases had a re-exploration, plus total re-ex time
+- Current streak / total active days
 
-## 3. Offline behaviour of specific features
+Filters: date-range selector (this month / 90 days / this year / all time) applied to the whole page, and an Export stats CSV button.
 
-- **Scrub-in / scrub-out / Re-ex timers**: fully offline; times recorded locally and synced later.
-- **AI "Scan image"**: needs internet (it calls a hosted model). Offline it shows a clear "needs connection" message; the photo can still be attached and scanned later.
-- **File attachments**: files picked offline are stored in the local database and uploaded to cloud storage when connectivity returns. Previously downloaded attachments are cached for offline viewing.
-- **CSV export**: works offline from the local copy.
+## 3. Suggested extras (included in this plan; tell me to drop any)
 
-## 4. Installable phone app (PWA)
+- **Milestones**: simple counters like "100 cardiac cases", "500 hours in case" with progress bars — useful for logbook/credentialing goals.
+- **Dashboard summary strip**: cases this week, hours this week, and current streak surfaced at the top of the dashboard.
+- **PDF logbook export**: printable case log for a date range (name, date, procedure, surgeon, role, duration) for portfolio/credentialing submissions.
+- **Voice note → auto-fill**: dictate a short post-case summary and have it fill the same fields as the photo scan (reuses the AI path).
 
-- Web app manifest with CaseSync name, tagline, theme colours matching the dark theme, standalone display, and app icons generated from the CaseSync logo (192/512 + maskable + Apple touch icon).
-- Service worker via `vite-plugin-pwa` (`generateSW`, `autoUpdate`) with a guarded registration wrapper: never registers in the Lovable editor preview, in an iframe, in dev, or with `?sw=off`. Page navigations use network-first; only hashed build assets are cached first.
-- Result: "Add to Home Screen" on iPhone/Android gives an app icon that launches full screen and opens without internet.
-- Note: offline mode only takes effect on the published site, not inside the editor preview.
+## Technical notes
 
-## 5. Desktop app
-
-Package the same app with Electron:
-
-- `electron/main.cjs` (context isolation on), `base: './'` in the Vite config, packaged with `@electron/packager`.
-- Builds produced for Windows (`.zip`), macOS (`.zip`) and Linux (`.tar.gz`), downloadable from the documents output.
-- The desktop build uses the same local database and sync engine, so it also works fully offline.
-
-## Technical details
-
-- New `src/lib/local-db.ts` (Dexie schema + per-user scoping), `src/lib/sync.ts` (pull, outbox flush, network listeners, status store), `src/hooks/use-sync-status.ts`.
-- `src/lib/procedures.ts` is rewritten to read/write through the local layer instead of calling Supabase directly, keeping the same exported function signatures so the existing screens and forms are untouched apart from the status chip.
-- Migration adds an `updated_at` column (with trigger) to the tables that lack one, so conflict resolution and incremental pull work: `procedure_steps`, `procedure_names`, `procedure_preset_fields`, `surgical_approaches`, `team_surgeons`, `team_pas`, `procedure_reexplorations`, `procedure_attachments`. Also a `deleted_at` soft-delete column on the same tables plus `procedures`, so deletions propagate between devices instead of rows reappearing on the next pull.
-- Auth: session tokens are already persisted locally, so the app stays signed in offline; the protected-route gate is adjusted to accept a cached session when the network is unreachable rather than bouncing to the sign-in page.
-- `vite-plugin-pwa` added; `public/manifest.webmanifest` + icons; registration only from the guarded wrapper.
-
-## Out of scope
-
-- App Store / Play Store native builds (this is web installability + desktop packaging).
-- Multi-device real-time collaboration (sync is periodic, not live).
-- Offline AI scanning.
+- Image compression is a small client-side helper (`src/lib/image.ts`) used by the scan handler; no schema change.
+- Stats are computed client-side from the existing Dexie/IndexedDB tables so the Profile page works offline; no new tables or migrations needed.
+- Hours in case use `total_duration_seconds` when present, otherwise `scrub_out_at − scrub_in_at`, with re-exploration durations counted separately so they don't double-count.
+- Charts use the chart components already in the project; no new dependencies except a PDF generator for the logbook export.
