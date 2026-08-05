@@ -23,6 +23,24 @@ const ExtractSchema = z.object({
 
 export type ExtractedProcedure = z.infer<typeof ExtractSchema>;
 
+const FIELD_GUIDE = [
+  "Fields:",
+  "- name: short procedure name (e.g. 'CABG', 'Laceration repair').",
+  "- category: one of Cardiac surgery, Airway, Vascular access, Suturing, Incision & drainage, Lumbar puncture, Splinting/Casting, Joint injection, Skin biopsy, Ultrasound, Endoscopy, Other. Use Other if unsure.",
+  "- patient_ref: patient name, MRN or initials.",
+  "- ip_number: inpatient / IP / admission number.",
+  "- patient_height_cm: height in centimetres as a number, else null.",
+  "- patient_weight_kg: weight in kilograms as a number, else null.",
+  "- diagnosis: clinical diagnosis / indication.",
+  "- surgical_approach: approach, incision, or anatomical site (e.g. 'median sternotomy', 'right radial').",
+  "- surgeon: primary surgeon's name, without a title.",
+  "- assistant_surgeon: assistant surgeon's name, without a title.",
+  "- pa_names: array of physician assistant names, or null.",
+  "- closed_by: name of the person who closed the incision.",
+  "- complications: any noted complications, else null.",
+  "- notes: any remaining relevant free text.",
+].join("\n");
+
 export const extractProcedureFromImage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { imageDataUrl: string }) => {
