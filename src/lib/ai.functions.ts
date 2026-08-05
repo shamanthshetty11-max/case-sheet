@@ -103,3 +103,62 @@ export const extractProcedureFromImage = createServerFn({ method: "POST" })
       throw error;
     }
   });
+
+export type VoiceFillResult = { transcript: string; fields: ExtractedProcedure };
+
+/** Transcribe a short dictation and turn it into form fields. */
+export const fillFormFromVoice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { audioBase64: string }) => {
+    if (!input?.audioBase64) throw new Error("No recording received");
+    if (input.audioBase64.length < 4_000) throw new Error("That recording was too short — try again");
+    if (input.audioBase64.length > 8_000_000) throw new Error("That recording is too long — keep it under a minute");
+    return input;
+  })
+  .handler(async ({ data }): Promise<VoiceFillResult> => {
+    const key = process.env.LOVABLE_API_KEY;
+    if (!key) throw new Error("Lovable AI is not configured");
+
+    const bytes = Uint8Array.from(atob(data.audioBase64), (c) => c.charCodeAt(0));
+    const form = new FormData();
+    form.append("model", "openai/gpt-4o-transcribe");
+    form.append("file", new Blob([bytes], { type: "audio/wav" }), "recording.wav");
+
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/audio/transcriptions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}` },
+      body: form,
+    });
+    if (!res.ok) {
+      throw new Error(`Transcription failed (${res.status}): ${await res.text().catch(() => "")}`);
+    }
+    const { text } = (await res.json()) as { text?: string };
+    const transcript = (text ?? "").trim();
+    if (!transcript) throw new Error("Nothing was heard in that recording");
+
+    const gateway = createLovableAiGatewayProvider(key);
+    const model = gateway("google/gemini-3.6-flash");
+
+    const instructions = [
+      "You turn a surgical assistant's spoken case summary into structured fields for a procedure logbook (CaseSync).",
+      "Return null for anything not clearly stated. Do NOT invent values.",
+      "Spoken numbers may be written out ('one seventy two centimetres' = 172).",
+      FIELD_GUIDE,
+    ].join("\n");
+
+    try {
+      const { output } = await generateText({
+        model,
+        output: Output.object({ schema: ExtractSchema }),
+        instructions,
+        allowSystemInMessages: true,
+        messages: [{ role: "user", content: `Dictated case summary:\n\n${transcript}` }],
+      });
+      return { transcript, fields: output };
+    } catch (error) {
+      if (NoObjectGeneratedError.isInstance(error)) {
+        try { return { transcript, fields: ExtractSchema.parse(JSON.parse(error.text ?? "{}")) }; } catch { /* ignore */ }
+      }
+      throw error;
+    }
+  });
