@@ -29,11 +29,12 @@ import {
   type Attachment,
 } from "@/lib/procedures";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Paperclip, X, Download, Sparkles } from "lucide-react";
+import { Plus, Trash2, Paperclip, X, Download, Sparkles, Mic, Square } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
-import { extractProcedureFromImage } from "@/lib/ai.functions";
+import { extractProcedureFromImage, fillFormFromVoice, type ExtractedProcedure } from "@/lib/ai.functions";
 import { compressImageToDataUrl } from "@/lib/image";
+import { startRecording, blobToBase64, type Recorder } from "@/lib/audio";
 import { PROCEDURE_CATEGORIES as CATS } from "@/lib/procedures";
 import { useBlocker } from "@tanstack/react-router";
 import {
@@ -133,7 +134,11 @@ export function ProcedureForm({
   const [attachments, setAttachments] = useState<Attachment[]>(initialAttachments);
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const recorderRef = useRef<Recorder | null>(null);
   const extract = useServerFn(extractProcedureFromImage);
+  const voiceFill = useServerFn(fillFormFromVoice);
 
   const qc = useQueryClient();
   const surgeonsQ = useQuery({ queryKey: ["team_surgeons"], queryFn: listTeamSurgeons });
