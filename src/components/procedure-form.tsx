@@ -490,13 +490,30 @@ export function ProcedureForm({
             </div>
             <div>
               <div className="font-medium">Scan case details</div>
-              <p className="text-sm text-muted-foreground">Snap a photo of your notes, a form, or a whiteboard. AI fills in what it can.</p>
+              <p className="text-sm text-muted-foreground">
+                Snap a photo of your notes, or just talk through the case. AI fills in what it can.
+              </p>
+              {recording && (
+                <p className="mt-1 flex items-center gap-1.5 text-sm text-primary">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+                  Listening… say the patient, diagnosis, procedure, surgeon and approach.
+                </p>
+              )}
             </div>
           </div>
-          <div>
+          <div className="flex flex-wrap gap-2">
             <input id="scan-input" type="file" accept="image/*" className="hidden" onChange={handleScan} />
             <Button type="button" variant="secondary" disabled={scanning} onClick={() => document.getElementById("scan-input")?.click()}>
               <Sparkles className="mr-1.5 h-4 w-4" /> {scanning ? "Reading image…" : "Scan image"}
+            </Button>
+            <Button
+              type="button"
+              variant={recording ? "destructive" : "secondary"}
+              disabled={transcribing}
+              onClick={recording ? stopDictation : startDictation}
+            >
+              {recording ? <Square className="mr-1.5 h-4 w-4" /> : <Mic className="mr-1.5 h-4 w-4" />}
+              {transcribing ? "Transcribing…" : recording ? "Stop & fill" : "Dictate case"}
             </Button>
           </div>
         </CardContent>
