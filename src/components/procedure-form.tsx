@@ -195,21 +195,11 @@ export function ProcedureForm({
     setDirty(true);
   }
 
-  async function handleScan(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      toast.error("Scanning needs an internet connection");
-      return;
-    }
-    setScanning(true);
+  /** Merge an AI extraction into the form without overwriting anything already filled. */
+  function applyExtraction(result: ExtractedProcedure, source: string) {
     const prevValues = v;
     const prevPas = paNames;
-    try {
-      const imageDataUrl = await compressImageToDataUrl(file);
-      const result = await extract({ data: { imageDataUrl } });
-      const applied: string[] = [];
+    const applied: string[] = [];
       setV((prev) => {
         const next = { ...prev };
         const apply = (k: keyof ProcedureFormValues, val: string | null | undefined) => {
@@ -249,22 +239,75 @@ export function ProcedureForm({
       }
       if (applied.length) {
         setDirty(true);
-        toast.success(`Filled from image: ${applied.map(labelFor).join(", ")}`, {
+        toast.success(`Filled from ${source}: ${applied.map(labelFor).join(", ")}`, {
           action: {
             label: "Undo",
             onClick: () => { setV(prevValues); setPaNames(prevPas); },
           },
           duration: 8000,
         });
-      } else {
-        toast.message("Nothing recognizable in the image");
       }
+    return applied.length;
+  }
+
+  async function handleScan(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      toast.error("Scanning needs an internet connection");
+      return;
+    }
+    setScanning(true);
+    try {
+      const imageDataUrl = await compressImageToDataUrl(file);
+      const result = await extract({ data: { imageDataUrl } });
+      if (!applyExtraction(result, "image")) toast.message("Nothing recognizable in the image");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("[scan] failed", err);
       toast.error(`Scan failed: ${msg || "unknown error"}`);
     } finally {
       setScanning(false);
+    }
+  }
+
+  async function startDictation() {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      toast.error("Voice fill needs an internet connection");
+      return;
+    }
+    try {
+      recorderRef.current = await startRecording();
+      setRecording(true);
+    } catch {
+      toast.error("Microphone access is needed to dictate a case");
+    }
+  }
+
+  async function stopDictation() {
+    const rec = recorderRef.current;
+    recorderRef.current = null;
+    setRecording(false);
+    if (!rec) return;
+    setTranscribing(true);
+    try {
+      const blob = await rec.stop();
+      if (blob.size < 4096) {
+        toast.error("That recording was empty — try again");
+        return;
+      }
+      const audioBase64 = await blobToBase64(blob);
+      const { transcript, fields } = await voiceFill({ data: { audioBase64 } });
+      if (!applyExtraction(fields, "voice")) {
+        toast.message(`Heard: "${transcript}" — but nothing matched a field`);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[voice] failed", err);
+      toast.error(`Voice fill failed: ${msg || "unknown error"}`);
+    } finally {
+      setTranscribing(false);
     }
   }
 
