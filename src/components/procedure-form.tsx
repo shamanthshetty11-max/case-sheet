@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,11 +29,12 @@ import {
   type Attachment,
 } from "@/lib/procedures";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Paperclip, X, Download, Sparkles } from "lucide-react";
+import { Plus, Trash2, Paperclip, X, Download, Sparkles, Mic, Square } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
-import { extractProcedureFromImage } from "@/lib/ai.functions";
+import { extractProcedureFromImage, fillFormFromVoice, type ExtractedProcedure } from "@/lib/ai.functions";
 import { compressImageToDataUrl } from "@/lib/image";
+import { startRecording, blobToBase64, type Recorder } from "@/lib/audio";
 import { PROCEDURE_CATEGORIES as CATS } from "@/lib/procedures";
 import { useBlocker } from "@tanstack/react-router";
 import {
@@ -133,7 +134,11 @@ export function ProcedureForm({
   const [attachments, setAttachments] = useState<Attachment[]>(initialAttachments);
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const recorderRef = useRef<Recorder | null>(null);
   const extract = useServerFn(extractProcedureFromImage);
+  const voiceFill = useServerFn(fillFormFromVoice);
 
   const qc = useQueryClient();
   const surgeonsQ = useQuery({ queryKey: ["team_surgeons"], queryFn: listTeamSurgeons });
@@ -190,21 +195,11 @@ export function ProcedureForm({
     setDirty(true);
   }
 
-  async function handleScan(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      toast.error("Scanning needs an internet connection");
-      return;
-    }
-    setScanning(true);
+  /** Merge an AI extraction into the form without overwriting anything already filled. */
+  function applyExtraction(result: ExtractedProcedure, source: string) {
     const prevValues = v;
     const prevPas = paNames;
-    try {
-      const imageDataUrl = await compressImageToDataUrl(file);
-      const result = await extract({ data: { imageDataUrl } });
-      const applied: string[] = [];
+    const applied: string[] = [];
       setV((prev) => {
         const next = { ...prev };
         const apply = (k: keyof ProcedureFormValues, val: string | null | undefined) => {
@@ -244,22 +239,75 @@ export function ProcedureForm({
       }
       if (applied.length) {
         setDirty(true);
-        toast.success(`Filled from image: ${applied.map(labelFor).join(", ")}`, {
+        toast.success(`Filled from ${source}: ${applied.map(labelFor).join(", ")}`, {
           action: {
             label: "Undo",
             onClick: () => { setV(prevValues); setPaNames(prevPas); },
           },
           duration: 8000,
         });
-      } else {
-        toast.message("Nothing recognizable in the image");
       }
+    return applied.length;
+  }
+
+  async function handleScan(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      toast.error("Scanning needs an internet connection");
+      return;
+    }
+    setScanning(true);
+    try {
+      const imageDataUrl = await compressImageToDataUrl(file);
+      const result = await extract({ data: { imageDataUrl } });
+      if (!applyExtraction(result, "image")) toast.message("Nothing recognizable in the image");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("[scan] failed", err);
       toast.error(`Scan failed: ${msg || "unknown error"}`);
     } finally {
       setScanning(false);
+    }
+  }
+
+  async function startDictation() {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      toast.error("Voice fill needs an internet connection");
+      return;
+    }
+    try {
+      recorderRef.current = await startRecording();
+      setRecording(true);
+    } catch {
+      toast.error("Microphone access is needed to dictate a case");
+    }
+  }
+
+  async function stopDictation() {
+    const rec = recorderRef.current;
+    recorderRef.current = null;
+    setRecording(false);
+    if (!rec) return;
+    setTranscribing(true);
+    try {
+      const blob = await rec.stop();
+      if (blob.size < 4096) {
+        toast.error("That recording was empty — try again");
+        return;
+      }
+      const audioBase64 = await blobToBase64(blob);
+      const { transcript, fields } = await voiceFill({ data: { audioBase64 } });
+      if (!applyExtraction(fields, "voice")) {
+        toast.message(`Heard: "${transcript}" — but nothing matched a field`);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[voice] failed", err);
+      toast.error(`Voice fill failed: ${msg || "unknown error"}`);
+    } finally {
+      setTranscribing(false);
     }
   }
 
@@ -442,13 +490,30 @@ export function ProcedureForm({
             </div>
             <div>
               <div className="font-medium">Scan case details</div>
-              <p className="text-sm text-muted-foreground">Snap a photo of your notes, a form, or a whiteboard. AI fills in what it can.</p>
+              <p className="text-sm text-muted-foreground">
+                Snap a photo of your notes, or just talk through the case. AI fills in what it can.
+              </p>
+              {recording && (
+                <p className="mt-1 flex items-center gap-1.5 text-sm text-primary">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+                  Listening… say the patient, diagnosis, procedure, surgeon and approach.
+                </p>
+              )}
             </div>
           </div>
-          <div>
+          <div className="flex flex-wrap gap-2">
             <input id="scan-input" type="file" accept="image/*" className="hidden" onChange={handleScan} />
             <Button type="button" variant="secondary" disabled={scanning} onClick={() => document.getElementById("scan-input")?.click()}>
               <Sparkles className="mr-1.5 h-4 w-4" /> {scanning ? "Reading image…" : "Scan image"}
+            </Button>
+            <Button
+              type="button"
+              variant={recording ? "destructive" : "secondary"}
+              disabled={transcribing}
+              onClick={recording ? stopDictation : startDictation}
+            >
+              {recording ? <Square className="mr-1.5 h-4 w-4" /> : <Mic className="mr-1.5 h-4 w-4" />}
+              {transcribing ? "Transcribing…" : recording ? "Stop & fill" : "Dictate case"}
             </Button>
           </div>
         </CardContent>
