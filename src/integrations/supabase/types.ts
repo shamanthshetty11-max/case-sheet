@@ -293,6 +293,7 @@ export type Database = {
           notes: string | null
           outcome: string | null
           pa_names: string[]
+          patient_age: number | null
           patient_height_cm: number | null
           patient_name: string | null
           patient_ref: string | null
@@ -326,6 +327,7 @@ export type Database = {
           notes?: string | null
           outcome?: string | null
           pa_names?: string[]
+          patient_age?: number | null
           patient_height_cm?: number | null
           patient_name?: string | null
           patient_ref?: string | null
@@ -359,6 +361,7 @@ export type Database = {
           notes?: string | null
           outcome?: string | null
           pa_names?: string[]
+          patient_age?: number | null
           patient_height_cm?: number | null
           patient_name?: string | null
           patient_ref?: string | null
