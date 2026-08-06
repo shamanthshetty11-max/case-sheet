@@ -1,0 +1,1 @@
+ALTER TABLE public.procedures ADD COLUMN IF NOT EXISTS patient_age integer;

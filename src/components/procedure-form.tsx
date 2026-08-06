@@ -50,6 +50,7 @@ export type ProcedureFormValues = {
   category: string;
   patient_name: string;
   ip_number: string;
+  patient_age: string;
   patient_height_cm: string;
   patient_weight_kg: string;
   diagnosis: string;
@@ -74,6 +75,7 @@ const FIELD_LABELS: Record<string, string> = {
   category: "category",
   patient_name: "patient",
   ip_number: "IP number",
+  patient_age: "age",
   patient_height_cm: "height",
   patient_weight_kg: "weight",
   diagnosis: "diagnosis",
@@ -109,6 +111,7 @@ export function ProcedureForm({
     category: initial?.category ?? "",
     patient_name: initial?.patient_name ?? "",
     ip_number: initial?.ip_number ?? "",
+    patient_age: initial?.patient_age != null ? String(initial.patient_age) : "",
     patient_height_cm: initial?.patient_height_cm != null ? String(initial.patient_height_cm) : "",
     patient_weight_kg: initial?.patient_weight_kg != null ? String(initial.patient_weight_kg) : "",
     diagnosis: initial?.indication ?? "",
@@ -211,6 +214,7 @@ export function ProcedureForm({
         apply("name", result.name);
         if (result.patient_ref && !prev.patient_name) { next.patient_name = result.patient_ref; applied.push("patient_name"); }
         apply("ip_number", result.ip_number);
+        apply("patient_age", result.patient_age != null ? String(result.patient_age) : null);
         apply("patient_height_cm", result.patient_height_cm != null ? String(result.patient_height_cm) : null);
         apply("patient_weight_kg", result.patient_weight_kg != null ? String(result.patient_weight_kg) : null);
         apply("diagnosis", result.diagnosis);
@@ -448,6 +452,7 @@ export function ProcedureForm({
         category: v.category || null,
         patient_name: v.patient_name || null,
         ip_number: v.ip_number || null,
+        patient_age: v.patient_age ? Number(v.patient_age) : null,
         patient_height_cm: v.patient_height_cm ? Number(v.patient_height_cm) : null,
         patient_weight_kg: v.patient_weight_kg ? Number(v.patient_weight_kg) : null,
         indication: v.diagnosis || null,
@@ -544,7 +549,8 @@ export function ProcedureForm({
               />
             </Field>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-3 gap-3">
+            <Field label="Age"><Input type="number" min={0} step="1" value={v.patient_age} onChange={(e) => set("patient_age", e.target.value)} /></Field>
             <Field label="Height (cm)"><Input type="number" min={0} step="0.1" value={v.patient_height_cm} onChange={(e) => set("patient_height_cm", e.target.value)} /></Field>
             <Field label="Weight (kg)"><Input type="number" min={0} step="0.1" value={v.patient_weight_kg} onChange={(e) => set("patient_weight_kg", e.target.value)} /></Field>
           </div>
