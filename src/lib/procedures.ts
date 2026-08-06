@@ -29,6 +29,7 @@ export type Procedure = {
   closed_by: string | null;
   preset_values: Record<string, string> | null;
   preset_id: string | null;
+  patient_age: number | null;
   patient_height_cm: number | null;
   patient_weight_kg: number | null;
   created_at: string;
