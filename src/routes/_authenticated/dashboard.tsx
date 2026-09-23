@@ -33,7 +33,16 @@ function Dashboard() {
       if (cat !== "all" && p.category !== cat) return false;
       if (!q.trim()) return true;
       const s = q.toLowerCase();
-      return [p.name, p.category, p.patient_ref, p.indication, p.site, p.surgeon, p.assistant_surgeon, p.notes]
+      const d = new Date(p.performed_at);
+      const dateText = [
+        format(d, "yyyy-MM-dd"),
+        format(d, "dd/MM/yyyy"),
+        format(d, "d MMM yyyy"),
+        format(d, "d MMMM yyyy"),
+        format(d, "MMMM yyyy"),
+        format(d, "EEEE"),
+      ].join(" ").toLowerCase();
+      return [p.name, p.category, p.patient_name, p.patient_ref, p.ip_number, p.indication, p.site, p.surgeon, p.assistant_surgeon, p.notes, dateText]
         .some((v) => v?.toLowerCase().includes(s));
     });
   }, [data, q, cat]);
@@ -103,7 +112,7 @@ function Dashboard() {
       <div className="flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[220px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search name, patient ref, notes…" className="pl-9" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input placeholder="Search case, patient, IP, doctor, date…" className="pl-9" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <Select value={cat} onValueChange={setCat}>
           <SelectTrigger className="w-[220px]"><SelectValue placeholder="All categories" /></SelectTrigger>
