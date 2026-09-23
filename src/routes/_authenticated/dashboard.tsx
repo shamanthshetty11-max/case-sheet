@@ -288,9 +288,13 @@ function CasesCalendar({ items }: { items: Procedure[] }) {
               <ul className="space-y-1.5">
                 {selectedList.map((p) => (
                   <li key={p.id}>
-                    <Link to="/procedures/$id" params={{ id: p.id }} className="block truncate rounded px-2 py-1 text-sm hover:bg-accent">
-                      <span className="font-medium">{p.name}</span>
-                      {p.category && <span className="ml-2 text-xs text-muted-foreground">{p.category}</span>}
+                    <Link to="/procedures/$id" params={{ id: p.id }} className="block rounded px-2 py-1 text-sm hover:bg-accent">
+                      <div className="truncate font-medium">{p.name}</div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {p.patient_name && <span>Pt: {p.patient_name}</span>}
+                        {p.ip_number && <span>{p.patient_name ? " · " : ""}IP: {p.ip_number}</span>}
+                        {p.category && <span className="ml-2">{p.category}</span>}
+                      </div>
                     </Link>
                   </li>
                 ))}
