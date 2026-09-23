@@ -33,7 +33,16 @@ function Dashboard() {
       if (cat !== "all" && p.category !== cat) return false;
       if (!q.trim()) return true;
       const s = q.toLowerCase();
-      return [p.name, p.category, p.patient_ref, p.indication, p.site, p.surgeon, p.assistant_surgeon, p.notes]
+      const d = new Date(p.performed_at);
+      const dateText = [
+        format(d, "yyyy-MM-dd"),
+        format(d, "dd/MM/yyyy"),
+        format(d, "d MMM yyyy"),
+        format(d, "d MMMM yyyy"),
+        format(d, "MMMM yyyy"),
+        format(d, "EEEE"),
+      ].join(" ").toLowerCase();
+      return [p.name, p.category, p.patient_name, p.patient_ref, p.ip_number, p.indication, p.site, p.surgeon, p.assistant_surgeon, p.notes, dateText]
         .some((v) => v?.toLowerCase().includes(s));
     });
   }, [data, q, cat]);
