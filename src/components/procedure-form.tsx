@@ -378,11 +378,11 @@ export function ProcedureForm({
     }
   }
 
-  async function addNewApproach(): Promise<string | null> {
-    const name = window.prompt("Add a surgical approach:");
-    if (!name?.trim()) return null;
+  async function addNewApproach(name?: string): Promise<string | null> {
+    const name2 = (name ?? window.prompt("Add a surgical approach:")) || "";
+    if (!name2.trim()) return null;
     try {
-      const created = await addSurgicalApproach(name.trim());
+      const created = await addSurgicalApproach(name2.trim());
       qc.invalidateQueries({ queryKey: ["surgical_approaches"] });
       return created.name;
     } catch (err) {
