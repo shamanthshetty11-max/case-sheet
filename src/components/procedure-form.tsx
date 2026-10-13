@@ -364,12 +364,12 @@ export function ProcedureForm({
     }
   }
 
-  async function addNewProcedureName(): Promise<string | null> {
+  async function addNewProcedureName(name?: string): Promise<string | null> {
     if (!v.category) { toast.info("Pick a category first"); return null; }
-    const name = window.prompt(`Add a procedure name under "${v.category}":`);
-    if (!name?.trim()) return null;
+    const name2 = (name ?? window.prompt(`Add a procedure name under "${v.category}":`)) || "";
+    if (!name2.trim()) return null;
     try {
-      const created = await addProcedureName(v.category, name.trim());
+      const created = await addProcedureName(v.category, name2.trim());
       qc.invalidateQueries({ queryKey: ["procedure_names"] });
       return created.name;
     } catch (err) {
