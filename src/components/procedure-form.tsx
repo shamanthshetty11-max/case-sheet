@@ -5,6 +5,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandInput, CommandList, CommandItem } from "@/components/ui/command";
 import {
   PROCEDURE_CATEGORIES,
   formatDuration,
@@ -29,7 +31,7 @@ import {
   type Attachment,
 } from "@/lib/procedures";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Paperclip, X, Download, Sparkles, Mic, Square } from "lucide-react";
+import { Plus, Trash2, Paperclip, X, Download, Sparkles, Mic, Square, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { extractProcedureFromImage, fillFormFromVoice, type ExtractedProcedure } from "@/lib/ai.functions";
@@ -362,12 +364,12 @@ export function ProcedureForm({
     }
   }
 
-  async function addNewProcedureName(): Promise<string | null> {
+  async function addNewProcedureName(name?: string): Promise<string | null> {
     if (!v.category) { toast.info("Pick a category first"); return null; }
-    const name = window.prompt(`Add a procedure name under "${v.category}":`);
-    if (!name?.trim()) return null;
+    const name2 = (name ?? window.prompt(`Add a procedure name under "${v.category}":`)) || "";
+    if (!name2.trim()) return null;
     try {
-      const created = await addProcedureName(v.category, name.trim());
+      const created = await addProcedureName(v.category, name2.trim());
       qc.invalidateQueries({ queryKey: ["procedure_names"] });
       return created.name;
     } catch (err) {
@@ -376,11 +378,11 @@ export function ProcedureForm({
     }
   }
 
-  async function addNewApproach(): Promise<string | null> {
-    const name = window.prompt("Add a surgical approach:");
-    if (!name?.trim()) return null;
+  async function addNewApproach(name?: string): Promise<string | null> {
+    const name2 = (name ?? window.prompt("Add a surgical approach:")) || "";
+    if (!name2.trim()) return null;
     try {
-      const created = await addSurgicalApproach(name.trim());
+      const created = await addSurgicalApproach(name2.trim());
       qc.invalidateQueries({ queryKey: ["surgical_approaches"] });
       return created.name;
     } catch (err) {
@@ -851,82 +853,102 @@ function StepRow({ step, onChange, onRemove }: { step: StepDraft; onChange: (p: 
   );
 }
 
+function ComboboxSelect({
+  value, options, onChange, placeholder, onAddTyped,
+}: {
+  value: string;
+  options: string[];
+  onChange: (v: string) => void;
+  placeholder: string;
+  onAddTyped?: (typed: string) => Promise<string | null>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const typed = search.trim();
+  const filtered = useMemo(() => {
+    const s = typed.toLowerCase();
+    if (!s) return options;
+    return options.filter((o) => o.toLowerCase().includes(s));
+  }, [options, typed]);
+  const exact = options.some((o) => o.toLowerCase() === typed.toLowerCase());
+
+  return (
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) setSearch(""); }}>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between font-normal">
+          <span className="truncate">{value || <span className="text-muted-foreground">{placeholder}</span>}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput placeholder={placeholder} value={search} onValueChange={setSearch} />
+          <CommandList>
+            {filtered.map((o) => (
+              <CommandItem key={o} value={o} onSelect={() => { onChange(o); setOpen(false); }}>
+                {o}
+              </CommandItem>
+            ))}
+            {typed && filtered.length === 0 && (
+              <div className="px-3 py-2 text-xs text-muted-foreground">No saved matches for “{typed}”.</div>
+            )}
+            {typed && !exact && (
+              <CommandItem value="__typed__" onSelect={() => { onChange(typed); setOpen(false); }}>
+                Use “{typed}”
+              </CommandItem>
+            )}
+            {typed && !exact && onAddTyped && (
+              <CommandItem value="__add__" onSelect={async () => {
+                const added = await onAddTyped(typed);
+                if (added) { onChange(added); toast.success(`Saved to catalog: ${added}`); }
+                setOpen(false);
+              }}>
+                <Plus className="mr-2 h-4 w-4" /> Add “{typed}” to catalog
+              </CommandItem>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function ProcedureNameSelect({
-  value,
-  options,
-  categorySelected,
-  onChange,
-  onAddNew,
+  value, options, categorySelected, onChange, onAddNew,
 }: {
   value: string;
   options: string[];
   categorySelected: boolean;
   onChange: (v: string) => void;
-  onAddNew: () => Promise<string | null>;
+  onAddNew: (name?: string) => Promise<string | null>;
 }) {
-  const [manual, setManual] = useState(false);
-  const inList = value && options.includes(value);
-  if (manual || (value && !inList) || !categorySelected) {
+  if (!categorySelected) {
     return (
-      <div className="flex gap-1">
-        <Input required placeholder="e.g. CABG x3" value={value} onChange={(e) => onChange(e.target.value)} />
-        {categorySelected && (
-          <Button type="button" variant="ghost" size="icon" aria-label="Pick from list" onClick={() => setManual(false)}>
-            <X className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
+      <Input required placeholder="Pick a category first, or type a one-off name" value={value} onChange={(e) => onChange(e.target.value)} />
     );
   }
   return (
-    <Select
-      value={value || ""}
-      onValueChange={async (val) => {
-        if (val === NEW_VALUE) {
-          const added = await onAddNew();
-          if (added) onChange(added);
-          return;
-        }
-        if (val === "__manual__") { setManual(true); onChange(""); return; }
-        onChange(val);
-      }}
-    >
-      <SelectTrigger><SelectValue placeholder="Select procedure name" /></SelectTrigger>
-      <SelectContent>
-        {options.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-        <SelectItem value={NEW_VALUE}>+ Add to catalog…</SelectItem>
-        <SelectItem value="__manual__">Type a one-off name…</SelectItem>
-      </SelectContent>
-    </Select>
+    <ComboboxSelect
+      value={value}
+      options={options}
+      onChange={onChange}
+      placeholder="Select or type procedure name"
+      onAddTyped={onAddNew}
+    />
   );
 }
 
 function ApproachSelect({
   value, options, onChange, onAddNew,
-}: { value: string; options: string[]; onChange: (v: string) => void; onAddNew: () => Promise<string | null> }) {
-  const inList = value && options.includes(value);
-  const [manual, setManual] = useState(false);
-  if (manual || (value && !inList)) {
-    return (
-      <div className="flex gap-1">
-        <Input placeholder="e.g. Median sternotomy" value={value} onChange={(e) => onChange(e.target.value)} />
-        <Button type="button" variant="ghost" size="icon" onClick={() => { setManual(false); onChange(""); }}><X className="h-4 w-4" /></Button>
-      </div>
-    );
-  }
+}: { value: string; options: string[]; onChange: (v: string) => void; onAddNew: (name?: string) => Promise<string | null> }) {
   return (
-    <Select value={value || ""} onValueChange={async (val) => {
-      if (val === NEW_VALUE) { const added = await onAddNew(); if (added) onChange(added); return; }
-      if (val === "__manual__") { setManual(true); onChange(""); return; }
-      onChange(val);
-    }}>
-      <SelectTrigger><SelectValue placeholder="Select approach" /></SelectTrigger>
-      <SelectContent>
-        {options.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-        <SelectItem value={NEW_VALUE}>+ Add to catalog…</SelectItem>
-        <SelectItem value="__manual__">Type a one-off approach…</SelectItem>
-      </SelectContent>
-    </Select>
+    <ComboboxSelect
+      value={value}
+      options={options}
+      onChange={onChange}
+      placeholder="Select or type approach"
+      onAddTyped={onAddNew}
+    />
   );
 }
 
