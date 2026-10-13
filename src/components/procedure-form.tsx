@@ -5,6 +5,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandInput, CommandList, CommandItem } from "@/components/ui/command";
 import {
   PROCEDURE_CATEGORIES,
   formatDuration,
@@ -29,7 +31,7 @@ import {
   type Attachment,
 } from "@/lib/procedures";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Paperclip, X, Download, Sparkles, Mic, Square } from "lucide-react";
+import { Plus, Trash2, Paperclip, X, Download, Sparkles, Mic, Square, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { extractProcedureFromImage, fillFormFromVoice, type ExtractedProcedure } from "@/lib/ai.functions";
