@@ -18,7 +18,14 @@ import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGri
 import type { Procedure } from "@/lib/procedures";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard — CaseSync" }, { name: "description", content: "Your CaseSync procedure logbook." }] }),
+  head: () => ({ meta: [
+    { title: "Case dashboard — CaseSync" },
+    { name: "description", content: "Review your CaseSync procedure log, daily case counts, and active cases." },
+    { property: "og:title", content: "Case dashboard — CaseSync" },
+    { property: "og:description", content: "Review your procedure log, daily case counts, and active cases." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: Dashboard,
 });
 

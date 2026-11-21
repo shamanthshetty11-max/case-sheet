@@ -20,7 +20,14 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 
 export const Route = createFileRoute("/_authenticated/team")({
-  head: () => ({ meta: [{ title: "Team — CaseSync" }, { name: "description", content: "Save your team of surgeons and physician assistants." }] }),
+  head: () => ({ meta: [
+    { title: "Surgical team — CaseSync" },
+    { name: "description", content: "Manage the surgeons and physician assistants saved in your CaseSync team." },
+    { property: "og:title", content: "Surgical team — CaseSync" },
+    { property: "og:description", content: "Manage your saved surgeons and physician assistants." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: TeamPage,
 });
 

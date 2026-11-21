@@ -7,7 +7,14 @@ import { toast } from "sonner";
 import { ArrowLeft, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/procedures/$id")({
-  head: () => ({ meta: [{ title: "Procedure — CaseSync" }, { name: "description", content: "Procedure detail." }] }),
+  head: () => ({ meta: [
+    { title: "Case details — CaseSync" },
+    { name: "description", content: "Review and update a saved procedure log in CaseSync." },
+    { property: "og:title", content: "Case details — CaseSync" },
+    { property: "og:description", content: "Review and update a saved procedure log in CaseSync." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: ProcedureDetail,
 });
 

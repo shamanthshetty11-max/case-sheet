@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, redirect, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Activity, Plus, LayoutDashboard, LogOut, Users, BookMarked, BarChart3 } from "lucide-react";
+import { Activity, Plus, LayoutDashboard, LogOut, Users, BookMarked, BarChart3, ClipboardCheck } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SyncStatus } from "@/components/sync-status";
@@ -56,6 +56,11 @@ function AuthedLayout() {
             <Link to="/dashboard">
               <Button variant={pathname === "/dashboard" ? "secondary" : "ghost"} size="sm">
                 <LayoutDashboard className="mr-1.5 h-4 w-4" /> Dashboard
+              </Button>
+            </Link>
+            <Link to="/pre-op">
+              <Button variant={pathname === "/pre-op" ? "secondary" : "ghost"} size="sm">
+                <ClipboardCheck className="mr-1.5 h-4 w-4" /> Pre-op
               </Button>
             </Link>
             <Link to="/team">

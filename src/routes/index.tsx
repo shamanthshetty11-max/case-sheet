@@ -12,6 +12,8 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "CaseSync — a private procedure logbook built for medical professionals. Log every case, time each step, keep clinical notes." },
       { property: "og:title", content: "CaseSync — Log. Learn. Grow." },
       { property: "og:description", content: "A private procedure logbook built for medical professionals. Log. Learn. Grow." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Landing,
@@ -22,7 +24,7 @@ function Landing() {
   const [checked, setChecked] = useState(false);
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/dashboard", replace: true });
+      if (data.session) navigate({ to: "/start", replace: true });
       else setChecked(true);
     });
   }, [navigate]);

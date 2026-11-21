@@ -17,7 +17,14 @@ import {
 } from "@/lib/procedures";
 
 export const Route = createFileRoute("/_authenticated/catalog")({
-  head: () => ({ meta: [{ title: "Catalog — CaseSync" }, { name: "description", content: "Manage procedure names by category and reusable presets." }] }),
+  head: () => ({ meta: [
+    { title: "Procedure catalog — CaseSync" },
+    { name: "description", content: "Manage procedure names, surgical approaches, and reusable CaseSync presets." },
+    { property: "og:title", content: "Procedure catalog — CaseSync" },
+    { property: "og:description", content: "Manage procedure names, surgical approaches, and reusable presets." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: CatalogPage,
 });
 

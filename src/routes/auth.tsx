@@ -16,6 +16,8 @@ export const Route = createFileRoute("/auth")({
       { name: "description", content: "Sign in to your CaseSync procedure logbook." },
       { property: "og:title", content: "Sign in — CaseSync" },
       { property: "og:description", content: "Sign in to your CaseSync procedure logbook." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: AuthPage,
@@ -30,7 +32,7 @@ function AuthPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/dashboard", replace: true });
+      if (data.session) navigate({ to: "/start", replace: true });
     });
   }, [navigate]);
 
@@ -45,11 +47,11 @@ function AuthPage() {
         });
         if (error) throw error;
         toast.success("Account created. You are signed in.");
-        navigate({ to: "/dashboard", replace: true });
+        navigate({ to: "/start", replace: true });
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        navigate({ to: "/dashboard", replace: true });
+        navigate({ to: "/start", replace: true });
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
@@ -64,7 +66,7 @@ function AuthPage() {
     });
     if (result.error) { toast.error(result.error.message ?? "Google sign-in failed"); return; }
     if (result.redirected) return;
-    navigate({ to: "/dashboard", replace: true });
+    navigate({ to: "/start", replace: true });
   }
 
   return (

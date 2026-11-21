@@ -90,8 +90,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "CaseSync — Log. Learn. Grow." },
       { name: "twitter:description", content: "A private procedure logbook built for medical professionals. Log. Learn. Grow." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/81564417-1bd1-4b91-b4e2-cdd14b00f4ae/id-preview-a6929b0f--ab87d512-910f-48b7-8b54-88c15ed219ab.lovable.app-1785055864993.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/81564417-1bd1-4b91-b4e2-cdd14b00f4ae/id-preview-a6929b0f--ab87d512-910f-48b7-8b54-88c15ed219ab.lovable.app-1785055864993.png" },
       { name: "theme-color", content: "#0b1220" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-title", content: "CaseSync" },

@@ -13,7 +13,9 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
+import { Route as AuthenticatedStartRouteImport } from './routes/_authenticated.start'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedPreOpRouteImport } from './routes/_authenticated.pre-op'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCatalogRouteImport } from './routes/_authenticated/catalog'
 import { Route as AuthenticatedProceduresNewRouteImport } from './routes/_authenticated/procedures.new'
@@ -38,9 +40,19 @@ const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
   path: '/team',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedStartRoute = AuthenticatedStartRouteImport.update({
+  id: '/start',
+  path: '/start',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPreOpRoute = AuthenticatedPreOpRouteImport.update({
+  id: '/pre-op',
+  path: '/pre-op',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
@@ -71,7 +83,9 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/catalog': typeof AuthenticatedCatalogRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/pre-op': typeof AuthenticatedPreOpRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/start': typeof AuthenticatedStartRoute
   '/team': typeof AuthenticatedTeamRoute
   '/procedures/$id': typeof AuthenticatedProceduresIdRoute
   '/procedures/new': typeof AuthenticatedProceduresNewRoute
@@ -81,7 +95,9 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/catalog': typeof AuthenticatedCatalogRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/pre-op': typeof AuthenticatedPreOpRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/start': typeof AuthenticatedStartRoute
   '/team': typeof AuthenticatedTeamRoute
   '/procedures/$id': typeof AuthenticatedProceduresIdRoute
   '/procedures/new': typeof AuthenticatedProceduresNewRoute
@@ -93,7 +109,9 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/catalog': typeof AuthenticatedCatalogRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/pre-op': typeof AuthenticatedPreOpRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/_authenticated/start': typeof AuthenticatedStartRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/_authenticated/procedures/$id': typeof AuthenticatedProceduresIdRoute
   '/_authenticated/procedures/new': typeof AuthenticatedProceduresNewRoute
@@ -105,7 +123,9 @@ export interface FileRouteTypes {
     | '/auth'
     | '/catalog'
     | '/dashboard'
+    | '/pre-op'
     | '/profile'
+    | '/start'
     | '/team'
     | '/procedures/$id'
     | '/procedures/new'
@@ -115,7 +135,9 @@ export interface FileRouteTypes {
     | '/auth'
     | '/catalog'
     | '/dashboard'
+    | '/pre-op'
     | '/profile'
+    | '/start'
     | '/team'
     | '/procedures/$id'
     | '/procedures/new'
@@ -126,7 +148,9 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/catalog'
     | '/_authenticated/dashboard'
+    | '/_authenticated/pre-op'
     | '/_authenticated/profile'
+    | '/_authenticated/start'
     | '/_authenticated/team'
     | '/_authenticated/procedures/$id'
     | '/_authenticated/procedures/new'
@@ -168,11 +192,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTeamRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/start': {
+      id: '/_authenticated/start'
+      path: '/start'
+      fullPath: '/start'
+      preLoaderRoute: typeof AuthenticatedStartRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/profile': {
       id: '/_authenticated/profile'
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/pre-op': {
+      id: '/_authenticated/pre-op'
+      path: '/pre-op'
+      fullPath: '/pre-op'
+      preLoaderRoute: typeof AuthenticatedPreOpRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboard': {
@@ -209,7 +247,9 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedCatalogRoute: typeof AuthenticatedCatalogRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedPreOpRoute: typeof AuthenticatedPreOpRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedStartRoute: typeof AuthenticatedStartRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedProceduresIdRoute: typeof AuthenticatedProceduresIdRoute
   AuthenticatedProceduresNewRoute: typeof AuthenticatedProceduresNewRoute
@@ -218,7 +258,9 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCatalogRoute: AuthenticatedCatalogRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedPreOpRoute: AuthenticatedPreOpRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedStartRoute: AuthenticatedStartRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedProceduresIdRoute: AuthenticatedProceduresIdRoute,
   AuthenticatedProceduresNewRoute: AuthenticatedProceduresNewRoute,
